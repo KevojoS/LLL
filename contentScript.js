@@ -52,103 +52,9 @@ style.textContent = `
         color: #2CB2B2;
     }
     
-    .translation-progress {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: linear-gradient(135deg, rgba(44,178,178,0.95) 0%, rgba(36,142,142,0.95) 100%);
-        color: white;
-        padding: 12px 20px;
-        border-radius: 12px;
-        font-family: Inter, system-ui, sans-serif;
-        font-size: 14px;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-        z-index: 100000;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        transition: opacity 0.3s ease;
-    }
-    
-    .translation-progress.hidden {
-        opacity: 0;
-        pointer-events: none;
-    }
-    
-    .progress-spinner {
-        width: 16px;
-        height: 16px;
-        border: 2px solid rgba(255,255,255,0.3);
-        border-top-color: white;
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-    }
-    
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-    
-    .progress-bar {
-        width: 100px;
-        height: 4px;
-        background: rgba(255,255,255,0.3);
-        border-radius: 2px;
-        overflow: hidden;
-    }
-    
-    .progress-bar-fill {
-        height: 100%;
-        background: white;
-        border-radius: 2px;
-        transition: width 0.3s ease;
-    }
 `;
 document.head.appendChild(style);
 
-// Progress indicator
-class ProgressIndicator {
-    constructor() {
-        this.element = document.createElement('div');
-        this.element.className = 'translation-progress hidden';
-        this.element.innerHTML = `
-            <div class="progress-spinner"></div>
-            <span class="progress-text">Translating...</span>
-            <div class="progress-bar">
-                <div class="progress-bar-fill" style="width: 0%"></div>
-            </div>
-        `;
-        document.body.appendChild(this.element);
-        
-        this.textElement = this.element.querySelector('.progress-text');
-        this.barElement = this.element.querySelector('.progress-bar-fill');
-    }
-    
-    show(total) {
-        this.total = total;
-        this.completed = 0;
-        this.element.classList.remove('hidden');
-        this.update();
-    }
-    
-    increment() {
-        this.completed++;
-        this.update();
-    }
-    
-    update() {
-        const percent = Math.round((this.completed / this.total) * 100);
-        this.textElement.textContent = `Translating ${this.completed}/${this.total}`;
-        this.barElement.style.width = `${percent}%`;
-        
-        if (this.completed >= this.total) {
-            setTimeout(() => this.hide(), 1000);
-        }
-    }
-    
-    hide() {
-        this.element.classList.add('hidden');
-    }
-}
 
 // Function to insert a translated sentence into its element
 function insertTranslatedSentence(el, sentence, translatedText) {
@@ -461,7 +367,6 @@ class TranslationManager {
     constructor() {
         this.translatedSentences = new Set(); // Track what's been translated
         this.isTranslating = false;
-        this.progress = new ProgressIndicator();
         this.debounceTimer = null;
     }
 
@@ -503,12 +408,10 @@ class TranslationManager {
                     .then(result => {
                         const translatedText = result?.choices?.[0]?.message?.content?.trim() || trimmedSentence;
                         insertTranslatedSentence(el, trimmedSentence, translatedText);
-                        this.progress.increment();
                         console.log("Translated:", translatedText);
                     })
                     .catch(err => {
                         console.error("Error translating sentence:", trimmedSentence, err);
-                        this.progress.increment();
                         // Remove from set so we can retry later
                         this.translatedSentences.delete(trimmedSentence);
                     });
@@ -524,16 +427,13 @@ class TranslationManager {
         }
 
         console.log(`Translating ${totalSentences} new sentences in viewport`);
-        
-        // Show progress bar
-        this.progress.show(totalSentences);
 
         // Wait for all translations to finish
         await Promise.all(translationPromises);
 
         addTooltipHandlersToSelected();
         console.log("All visible sentences translated!");
-        
+
         this.isTranslating = false;
     }
 
