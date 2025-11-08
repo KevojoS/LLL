@@ -10,22 +10,16 @@
     --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     --border-radius: 12px;
 }
-
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-html {
-    width: 350px;
-    height: 600px;
-}
-
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     width: 350px;
-    min-height: 600px;
+    min-height: 500px;
     padding: 20px;
     background: linear-gradient(135deg, #f5fdff 0%, #f0f9fa 100%);
     color: var(--dark-gray);
@@ -93,7 +87,8 @@ body {
 .logo {
     width: 32px;
     height: 32px;
-    background-color: var(--teal-blue);
+    background: url('img/icon.png') no-repeat center center;
+    background-size:contain;
     border-radius: 8px;
     margin-right: 10px;
     display: flex;
