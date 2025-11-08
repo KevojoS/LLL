@@ -1,6 +1,6 @@
 API_KEY = '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'
 
-async function translateSentence(language, sentence) { //fragile no error checking
+async function translateSentence(language, sentence) {
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -20,9 +20,7 @@ async function translateSentence(language, sentence) { //fragile no error checki
             sort: 'latency'
         }
     }),
-    });;
-
-    //const start = performance.now();
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -30,14 +28,13 @@ async function translateSentence(language, sentence) { //fragile no error checki
 
     const data = await response.json();
     console.log(data["choices"][0]["message"]["content"])
-    
-    //const end = performance.now();  
-    //console.log(`Execution time: ${end - start} ms`);
     return data;
   } catch (error) {
     console.error("Fetch error:", error);
+    throw error; // Re-throw so caller knows it failed
   }
 }
+
 const style = document.createElement('style');
 style.textContent = `
     @keyframes fadeInLeft {
@@ -51,17 +48,113 @@ style.textContent = `
         }
     }
     .translated-sentence {
-        animation: fadeInLeft 1.3s ease-out;
+        animation: fadeInLeft 0.6s ease-out;
         color: #2CB2B2;
+    }
+    
+    .translation-progress {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, rgba(44,178,178,0.95) 0%, rgba(36,142,142,0.95) 100%);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 12px;
+        font-family: Inter, system-ui, sans-serif;
+        font-size: 14px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        z-index: 100000;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: opacity 0.3s ease;
+    }
+    
+    .translation-progress.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+    
+    .progress-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .progress-bar {
+        width: 100px;
+        height: 4px;
+        background: rgba(255,255,255,0.3);
+        border-radius: 2px;
+        overflow: hidden;
+    }
+    
+    .progress-bar-fill {
+        height: 100%;
+        background: white;
+        border-radius: 2px;
+        transition: width 0.3s ease;
     }
 `;
 document.head.appendChild(style);
 
+// Progress indicator
+class ProgressIndicator {
+    constructor() {
+        this.element = document.createElement('div');
+        this.element.className = 'translation-progress hidden';
+        this.element.innerHTML = `
+            <div class="progress-spinner"></div>
+            <span class="progress-text">Translating...</span>
+            <div class="progress-bar">
+                <div class="progress-bar-fill" style="width: 0%"></div>
+            </div>
+        `;
+        document.body.appendChild(this.element);
+        
+        this.textElement = this.element.querySelector('.progress-text');
+        this.barElement = this.element.querySelector('.progress-bar-fill');
+    }
+    
+    show(total) {
+        this.total = total;
+        this.completed = 0;
+        this.element.classList.remove('hidden');
+        this.update();
+    }
+    
+    increment() {
+        this.completed++;
+        this.update();
+    }
+    
+    update() {
+        const percent = Math.round((this.completed / this.total) * 100);
+        this.textElement.textContent = `Translating ${this.completed}/${this.total}`;
+        this.barElement.style.width = `${percent}%`;
+        
+        if (this.completed >= this.total) {
+            setTimeout(() => this.hide(), 1000);
+        }
+    }
+    
+    hide() {
+        this.element.classList.add('hidden');
+    }
+}
+
 // Function to insert a translated sentence into its element
-function insertTranslatedSentence(el, sentence, translatedText, opts = {}) {
+function insertTranslatedSentence(el, sentence, translatedText) {
     const fullText = el.textContent;
     const sentenceStart = fullText.indexOf(sentence);
-    if (sentenceStart === -1) return; // sentence not found
+    if (sentenceStart === -1) return;
     const sentenceEnd = sentenceStart + sentence.length;
 
     // Collect all text nodes
@@ -85,7 +178,7 @@ function insertTranslatedSentence(el, sentence, translatedText, opts = {}) {
     const affectedNodes = textNodes.filter(n => n.start < sentenceEnd && n.end > sentenceStart);
     if (!affectedNodes.length) return;
 
-    // Create translated span (no animation)
+    // Create translated span
     const tempDiv = document.createElement('div');
     tempDiv.textContent = translatedText;
     wrapTextNodes(tempDiv);
@@ -146,27 +239,10 @@ function insertTranslatedSentence(el, sentence, translatedText, opts = {}) {
         }
     }
 
-    // Remove any remaining elements
     elementsToRemove.forEach(el => el.remove());
 }
 
-async function testTranslations() {
-    /*
-    translateSentence("russian", "Hello, how are you?");
-    translateSentence("russian", "What's your name?");
-    translateSentence("russian", "What's your favorite color?");
-    translateSentence("russian", "Should I wear a blue or red shirt?");
-    translateSentence("russian", "Back to the future");
-    translateSentence("russian", "What's your favorite back exercise?");
-    */
-   console.log("Blank test")
-}
-
-testTranslations()
-
-
-// Tooltip logic for .selected elements
-// Create tooltip element
+// Tooltip logic
 const tooltip = document.createElement('div');
 tooltip.style.position = 'fixed';
 tooltip.style.background = 'linear-gradient(180deg, rgba(44,178,178,0.15) 0%, rgba(255,255,255,0.15) 100%)';
@@ -189,14 +265,11 @@ document.body.appendChild(tooltip);
 function showTooltip(text, x, y) {
     tooltip.textContent = text;
     tooltip.style.display = 'block';
-    // offset to avoid cursor overlap
     let offsetX = 12;
     let offsetY = 16;
-    // viewport bounds
     const tooltipRect = tooltip.getBoundingClientRect();
     let left = x + offsetX;
     let top = y + offsetY;
-    // prevent overflow right/bottom
     if (left + tooltipRect.width > window.innerWidth) {
         left = window.innerWidth - tooltipRect.width - 8;
     }
@@ -214,10 +287,15 @@ function hideTooltip() {
 function addTooltipHandlersToSelected() {
     const selectedElements = document.querySelectorAll('.selected');
     selectedElements.forEach(el => {
+        // Remove existing listeners to avoid duplicates
+        el.replaceWith(el.cloneNode(true));
+    });
+    
+    // Re-query after replacing
+    document.querySelectorAll('.selected').forEach(el => {
         let mouseMoveHandler = null;
         el.addEventListener('mouseover', function(e) {
             showTooltip(el.textContent, e.clientX, e.clientY);
-            // mousemove so tooltip follows cursor
             mouseMoveHandler = function(ev) {
                 showTooltip(el.textContent, ev.clientX, ev.clientY);
             };
@@ -233,7 +311,6 @@ function addTooltipHandlersToSelected() {
     });
 }
 
-addTooltipHandlersToSelected();
 const getFullText = (el) => {
     if (!el) return '';
     return el.textContent.trim();
@@ -244,35 +321,25 @@ const isEditable = (el) => {
     const editableTags = ['INPUT', 'TEXTAREA', 'SELECT'];
     return el.isContentEditable || editableTags.includes(el.tagName);
 };
+
 const getActualtext = (element) => {
     const results = [];
     const isWrapper = (el) => {
-        const list = ['A', 'STRONG', 'EM', 'I', 'B', 'MARK',
-            'SMALL',
-            'SUB',
-            'SUP',
-            'CODE',
-            'SAMP',
-            'VAR',
-            'KBD',
-        ]
+        const list = ['A', 'STRONG', 'EM', 'I', 'B', 'MARK', 'SMALL', 'SUB', 'SUP', 'CODE', 'SAMP', 'VAR', 'KBD'];
         for (const element of el) {
             if (!list.includes(element.tagName)) {
-                return false
+                return false;
             }
         }
-        return true
-    }
+        return true;
+    };
     const recurse = (el) => {
         if (!el) return;
         if (isEditable(el)) return;
         const children = Array.from(el.children);
         if (children.length === 0 || isWrapper(el.children)) {
             if ((el.textContent || '').trim().length > 0) {
-            results.push(el);
-            } 
-            else {
-                return
+                results.push(el);
             }
         } else {
             for (const child of children) {
@@ -280,29 +347,8 @@ const getActualtext = (element) => {
             }
         }
     };
-
     recurse(element);
     return results;
-};
-
-const uniqueById = (arr, key) => {
-    const seen = new Set();
-    return arr.filter(obj => {
-        let keyValue = obj[key];
-        if (keyValue && typeof keyValue === 'object') {
-            try {
-                keyValue = JSON.stringify(keyValue);
-            } catch (e) {
-                keyValue = String(keyValue);
-            }
-        }
-        if (seen.has(keyValue)) {
-            return false;
-        } else {
-            seen.add(keyValue);
-            return true; 
-        }
-    });
 };
 
 const wrapTextNodes = (el) => {
@@ -324,8 +370,7 @@ const wrapTextNodes = (el) => {
             });
             fragments.forEach(frag => parent.insertBefore(frag, node));
             parent.removeChild(node);
-        } 
-        else if (
+        } else if (
             node.nodeType === Node.ELEMENT_NODE &&
             node.tagName !== 'MARK' &&
             !node.classList.contains('lmao')
@@ -337,27 +382,16 @@ const wrapTextNodes = (el) => {
 
 const isElementVisible = (element) => {
     if (!element) return false;
-    
     const style = window.getComputedStyle(element);
-    
-    // Check basic visibility
     if (style.display === 'none' || style.visibility === 'hidden') return false;
-    
-    // Check opacity
     if (parseFloat(style.opacity) === 0) return false;
-    
-    // Check if positioned off-screen
     if (style.position === 'fixed' || style.position === 'absolute') {
         const rect = element.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return false;
         if (rect.right < 0 || rect.bottom < 0) return false;
         if (rect.left > window.innerWidth || rect.top > window.innerHeight) return false;
     }
-    
-    // Check clip/clip-path
     if (style.clip === 'rect(0px, 0px, 0px, 0px)' || style.clipPath === 'inset(100%)') return false;
-    
-    // Check parent chain visibility
     let parent = element.parentElement;
     while (parent && parent !== document.body) {
         const parentStyle = window.getComputedStyle(parent);
@@ -365,49 +399,47 @@ const isElementVisible = (element) => {
         if (parseFloat(parentStyle.opacity) === 0) return false;
         parent = parent.parentElement;
     }
-    
     return true;
 };
 
-const webScrape = (dom) => {
-    const elements = dom.querySelectorAll(`
-    p, h1, h2, h3, h4, h5, h6, article, strong, mark, em, span, div
-    `);
-    let elementsArray = []
+const isElementInViewport = (element) => {
+    const rect = element.getBoundingClientRect();
+    
+    // Check if element is at least partially in viewport
+    return (
+        rect.top < window.innerHeight &&
+        rect.bottom > 0 &&
+        rect.left < window.innerWidth &&
+        rect.right > 0
+    );
+};
+
+const webScrape = (dom, viewportOnly = false) => {
+    const elements = dom.querySelectorAll('p, h1, h2, h3, h4, h5, h6, article, strong, mark, em, span, div');
+    let elementsArray = [];
     for (const element of elements) {
-        elementsArray = elementsArray.concat(getActualtext(element))
+        elementsArray = elementsArray.concat(getActualtext(element));
     }
     elementsArray = elementsArray.filter(item => {
-            // Check hidden class
-            if (item.classList.contains('hidden')) return false;
-            
-            // Check aria-hidden
-            if (item.getAttribute('aria-hidden') === 'true') return false;
-            
-            // Check visibility
-            if (!isElementVisible(item)) return false;
-            
-            // Check text content quality
-            const text = item.textContent.trim();
-            if (text.length === 0) return false;
-            
-            if (text.includes('\n')) return false;
-            
-            // Filter out navigation, header, footer elements
-            const parentNav = item.closest('nav, header, footer, aside');
-            if (parentNav) {
-                const navStyle = window.getComputedStyle(parentNav);
-                if (navStyle.position === 'fixed' || navStyle.position === 'sticky') return false;
-            }
-            
-            // Filter out very short content (likely buttons, labels, etc.)
-            if (text.length < 10) return false;
-            
-            return true;
-        })
-        .map((element, index) => ({ id: `element-${index}`, element: element }));
+        if (item.classList.contains('hidden')) return false;
+        if (item.getAttribute('aria-hidden') === 'true') return false;
+        if (!isElementVisible(item)) return false;
+        
+        // Filter by viewport if requested
+        if (viewportOnly && !isElementInViewport(item)) return false;
+        
+        const text = item.textContent.trim();
+        if (text.length === 0) return false;
+        if (text.includes('\n')) return false;
+        const parentNav = item.closest('nav, header, footer, aside');
+        if (parentNav) {
+            const navStyle = window.getComputedStyle(parentNav);
+            if (navStyle.position === 'fixed' || navStyle.position === 'sticky') return false;
+        }
+        if (text.length < 10) return false;
+        return true;
+    }).map((element, index) => ({ id: `element-${index}`, element: element }));
 
-    // Remove duplicates based on text content
     const seenTexts = new Set();
     elementsArray = elementsArray.filter(item => {
         const text = getFullText(item.element);
@@ -418,68 +450,112 @@ const webScrape = (dom) => {
 
     let sentencesArray = Array.from(elementsArray).map(
         element => ({ id: element.id, el: element.element, textArray: getFullText(element.element).match(/[A-Z][^.?!]*[.?!]/g) || [] })
-    )
-    .filter(item => item.textArray.length != 0)
+    ).filter(item => item.textArray.length != 0);
 
     console.log(sentencesArray);
-    return (sentencesArray)
+    return sentencesArray;
+};
+
+// Translation Manager - Handles viewport-based translation
+class TranslationManager {
+    constructor() {
+        this.translatedSentences = new Set(); // Track what's been translated
+        this.isTranslating = false;
+        this.progress = new ProgressIndicator();
+        this.debounceTimer = null;
+    }
+
+    async translateViewport() {
+        if (this.isTranslating) {
+            console.log("Translation already in progress, skipping...");
+            return;
+        }
+
+        this.isTranslating = true;
+
+        // Only scrape elements that are currently in viewport
+        const sentencesArray = webScrape(document, true);
+        if (!sentencesArray.length) {
+            console.log("No visible sentences found in viewport");
+            this.isTranslating = false;
+            return;
+        }
+
+        // Count total sentences (only untranslated ones)
+        let totalSentences = 0;
+        const translationPromises = [];
+
+        for (const elementObj of sentencesArray) {
+            const el = elementObj.el;
+
+            for (const sentence of elementObj.textArray) {
+                const trimmedSentence = sentence.trim();
+                if (!trimmedSentence) continue;
+
+                // Skip if already translated
+                if (this.translatedSentences.has(trimmedSentence)) continue;
+
+                totalSentences++;
+                this.translatedSentences.add(trimmedSentence);
+
+                // Each API call is a promise; insert translation when done
+                const promise = translateSentence("russian", trimmedSentence)
+                    .then(result => {
+                        const translatedText = result?.choices?.[0]?.message?.content?.trim() || trimmedSentence;
+                        insertTranslatedSentence(el, trimmedSentence, translatedText);
+                        this.progress.increment();
+                        console.log("Translated:", translatedText);
+                    })
+                    .catch(err => {
+                        console.error("Error translating sentence:", trimmedSentence, err);
+                        this.progress.increment();
+                        // Remove from set so we can retry later
+                        this.translatedSentences.delete(trimmedSentence);
+                    });
+
+                translationPromises.push(promise);
+            }
+        }
+
+        if (totalSentences === 0) {
+            console.log("All visible sentences already translated");
+            this.isTranslating = false;
+            return;
+        }
+
+        console.log(`Translating ${totalSentences} new sentences in viewport`);
+        
+        // Show progress bar
+        this.progress.show(totalSentences);
+
+        // Wait for all translations to finish
+        await Promise.all(translationPromises);
+
+        addTooltipHandlersToSelected();
+        console.log("All visible sentences translated!");
+        
+        this.isTranslating = false;
+    }
+
+    onScroll() {
+        // Debounce scroll events - only translate after user stops scrolling for 500ms
+        clearTimeout(this.debounceTimer);
+        this.debounceTimer = setTimeout(() => {
+            this.translateViewport();
+        }, 500);
+    }
 }
 
+// Initialize translation manager
+const translationManager = new TranslationManager();
 
-// highlightsentencesArray(webScrape(document))
+// Translate initial viewport
+translationManager.translateViewport();
 
-(async () => {
-    const sentencesArray = webScrape(document);
-    if (!sentencesArray.length || !sentencesArray[0].textArray.length) return;
+// Add scroll listener to translate as user scrolls
+let scrollTimeout;
+window.addEventListener('scroll', () => {
+    translationManager.onScroll();
+}, { passive: true });
 
-    const firstElement = sentencesArray[0];
-    const firstSentence = firstElement.textArray[0].trim();
-
-    const translationResult = await translateSentence("russian", firstSentence);
-    const translatedText = translationResult?.choices?.[0]?.message?.content?.trim() || firstSentence;
-
-    insertTranslatedSentence(firstElement.el, firstSentence, translatedText);
-
-    addTooltipHandlersToSelected();
-    console.log("First sentence translated and inserted:", translatedText);
-})();
-
-// Only translate and insert the first sentence, using insertTranslatedSentence
-
-
-
-//Call for everysentence
-
-// (async () => {
-//     const sentencesArray = webScrape(document);
-//     if (!sentencesArray.length) return;
-
-//     // Collect all sentence jobs
-//     const translationPromises = [];
-
-//     for (const elementObj of sentencesArray) {
-//         const el = elementObj.el;
-
-//         for (const sentence of elementObj.textArray) {
-//             const trimmedSentence = sentence.trim();
-//             if (!trimmedSentence) continue;
-
-//             // Each API call is a promise; insert translation when done
-//             const promise = translateSentence("russian", trimmedSentence)
-//                 .then(result => {
-//                     const translatedText = result?.choices?.[0]?.message?.content?.trim() || trimmedSentence;
-//                     insertTranslatedSentence(el, trimmedSentence, translatedText);
-//                     console.log("Translated:", translatedText);
-//                 })
-//                 .catch(err => console.error("Error translating sentence:", trimmedSentence, err));
-
-//             translationPromises.push(promise);
-//         }
-//     }
-
-//     // Wait for all translations to finish
-//     await Promise.all(translationPromises);
-
-//     addTooltipHandlersToSelected();
-//     console.log("All sentences translated and inserted.");
-// })();
+console.log("✨ Auto-translation enabled! Scroll to translate more content.");
