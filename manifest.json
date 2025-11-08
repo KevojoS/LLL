@@ -11,6 +11,9 @@
     "activeTab",
     "scripting"
   ],
+  "host_permissions":[
+    "https://openrouter.ai/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },

@@ -1,0 +1,413 @@
+:root {
+    --teal-blue: #2CB2B2;
+    --light-blue: #E6F7F7;
+    --dark-blue: #1A8C8C;
+    --white: #FFFFFF;
+    --light-gray: #F5F5F5;
+    --medium-gray: #E0E0E0;
+    --dark-gray: #555555;
+    --accent-orange: #FF9F43;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --border-radius: 12px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    width: 350px;
+    height: 600px;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    width: 350px;
+    min-height: 600px;
+    padding: 20px;
+    background: linear-gradient(135deg, #f5fdff 0%, #f0f9fa 100%);
+    color: var(--dark-gray);
+    position: relative;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+/* Decorative elements */
+.decoration {
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.decoration-1 {
+    top: -30px;
+    right: -30px;
+    width: 120px;
+    height: 120px;
+    background: var(--teal-blue);
+    opacity: 0.1;
+    border-radius: 50%;
+}
+
+.decoration-2 {
+    bottom: -40px;
+    left: -40px;
+    width: 100px;
+    height: 100px;
+    background: var(--teal-blue);
+    opacity: 0.08;
+    border-radius: 50%;
+}
+
+.decoration-3 {
+    top: 50%;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    background: var(--teal-blue);
+    opacity: 0.05;
+    border-radius: 50%;
+}
+
+/* Content wrapper */
+.content-wrapper {
+    position: relative;
+    z-index: 1;
+}
+
+/* Header section */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+}
+
+.logo {
+    width: 32px;
+    height: 32px;
+    background-color: var(--teal-blue);
+    border-radius: 8px;
+    margin-right: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.app-name {
+    color: var(--teal-blue);
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.streak-container {
+    display: flex;
+    align-items: center;
+    background-color: var(--light-blue);
+    padding: 6px 12px;
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+}
+
+.flame-icon {
+    color: var(--accent-orange);
+    margin-right: 5px;
+    font-size: 16px;
+}
+
+.streak-count {
+    font-weight: 700;
+    color: var(--dark-gray);
+}
+
+/* Language dropdown */
+.language-selector {
+    margin-bottom: 15px;
+}
+
+.language-dropdown {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid var(--light-blue);
+    border-radius: var(--border-radius);
+    background-color: var(--white);
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--dark-gray);
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232CB2B2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+}
+
+.language-dropdown:focus {
+    outline: none;
+    border-color: var(--teal-blue);
+}
+
+/* Slider containers */
+.slider-container {
+    background-color: var(--white);
+    border: 2px solid var(--light-blue);
+    border-radius: var(--border-radius);
+    padding: 16px;
+    margin-bottom: 15px;
+    box-shadow: var(--shadow);
+    transition: all 0.3s ease;
+}
+
+.slider-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+}
+
+.slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.slider-title {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--dark-gray);
+}
+
+.slider-value {
+    font-weight: 700;
+    color: var(--teal-blue);
+    font-size: 14px;
+}
+
+/* Custom slider styling */
+.slider {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 5px;
+    background: var(--light-blue);
+    outline: none;
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--teal-blue);
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    background: var(--dark-blue);
+}
+
+/* Button containers */
+.buttons-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.action-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--teal-blue);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    padding: 12px 16px;
+    width: 48%;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: all 0.3s ease;
+}
+
+.action-button:hover {
+    background-color: var(--dark-blue);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.button-icon {
+    margin-right: 8px;
+    font-size: 16px;
+}
+
+/* Progress badges */
+.progress-badges {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--teal-blue);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    padding: 14px 16px;
+    width: 100%;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: all 0.3s ease;
+}
+
+.progress-badges:hover {
+    background-color: var(--dark-blue);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.badge-icon {
+    margin-right: 10px;
+    font-size: 16px;
+}
+
+/* Level indicators */
+.level-indicators {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 10px;
+    color: var(--dark-gray);
+}
+
+.level-indicator {
+    text-align: center;
+    width: 16%;
+}
+
+.active-level {
+    color: var(--teal-blue);
+    font-weight: 700;
+}
+
+/* Page containers */
+.page {
+    display: none;
+}
+
+.page.active {
+    display: block;
+}
+
+.back-button {
+    background: none;
+    border: none;
+    color: var(--teal-blue);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    font-family: inherit;
+    padding: 0;
+}
+
+.back-button:hover {
+    color: var(--dark-blue);
+}
+
+.flashcard {
+    background: white;
+    border: 2px solid var(--light-blue);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin-bottom: 15px;
+    box-shadow: var(--shadow);
+    text-align: center;
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.quiz-question {
+    background: white;
+    border: 2px solid var(--light-blue);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin-bottom: 15px;
+    box-shadow: var(--shadow);
+}
+
+.quiz-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.quiz-option {
+    padding: 12px;
+    border: 2px solid var(--light-blue);
+    border-radius: var(--border-radius);
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.quiz-option:hover {
+    background: var(--light-blue);
+}
+
+.badge-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.badge {
+    background: white;
+    border: 2px solid var(--light-blue);
+    border-radius: var(--border-radius);
+    padding: 15px 10px;
+    text-align: center;
+    box-shadow: var(--shadow);
+}
+
+.badge-icon-large {
+    font-size: 24px;
+    margin-bottom: 5px;
+}
+
+.badge-name {
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.page-title {
+    margin-bottom: 15px;
+    color: var(--teal-blue);
+}
+
+.flip-hint {
+    text-align: center;
+    color: var(--dark-gray);
+    font-size: 12px;
+}
