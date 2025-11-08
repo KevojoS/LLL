@@ -11,7 +11,6 @@ function updateDifficultyDisplay() {
     const levelIndex = parseInt(difficultySlider.value) - 1;
     const language = languageSelect.options[languageSelect.selectedIndex].text;
     difficultyValue.textContent = `${language} - ${cefrLevels[levelIndex]}`;
-    
     // Update active level indicator
     difficultyIndicators.forEach((indicator, index) => {
         if (index === levelIndex) {
@@ -19,6 +18,11 @@ function updateDifficultyDisplay() {
         } else {
             indicator.classList.remove('active-level');
         }
+    });
+
+    chrome.storage.sync.set({
+        difficultyLevel: levelIndex,
+        selectedLanguage: language
     });
 }
 
@@ -105,3 +109,5 @@ document.querySelectorAll('.action-button, .progress-badges').forEach(button => 
 // Initialize displays
 updateDifficultyDisplay();
 updateVolumeDisplay();
+
+console.log("Ran scriptjs")

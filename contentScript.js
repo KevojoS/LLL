@@ -35,6 +35,28 @@ async function translateSentence(language, sentence) {
   }
 }
 
+async function getDifficultyLevel() {
+    const data = await chrome.storage.sync.get(['difficultyLevel', 'selectedLanguage']);
+    return {
+        level: data.difficultyLevel ?? null, // Default to 0 (A1)
+        language: data.selectedLanguage ?? null
+    };
+}
+
+// Listen for changes to difficulty
+chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (changes.difficultyLevel) {
+        console.log('Difficulty changed to:', changes.difficultyLevel.newValue);
+        // Update your content script behavior here
+        //handleDifficultyChange(changes.difficultyLevel.newValue);
+    }
+    if (changes.selectedLanguage) {
+        console.log('Languaged changed to:', changes.selectedLanguage.newValue);
+        // Update your content script behavior here
+        //handleDifficultyChange(changes.difficultyLevel.newValue);
+    }
+});
+
 const style = document.createElement('style');
 style.textContent = `
     @keyframes fadeInLeft {
@@ -378,6 +400,8 @@ class TranslationManager {
 
         this.isTranslating = true;
 
+        let storageInfo = await getDifficultyLevel()
+
         // Only scrape elements that are currently in viewport
         const sentencesArray = webScrape(document, true);
         if (!sentencesArray.length) {
@@ -399,12 +423,26 @@ class TranslationManager {
 
                 // Skip if already translated
                 if (this.translatedSentences.has(trimmedSentence)) continue;
+                
+                const response = await chrome.runtime.sendMessage({
+                    action: 'getDifficulty',
+                    sentence: trimmedSentence.toLowerCase()
+                });
+    
+                if (response.success) {
+                    if (response.difficulty > storageInfo.level) {
+                        continue;
+                    }
+                } else {
+                    console.error(`Error analyzing text ${trimmedSentence} `, response.error);
+                    continue;
+                }
 
                 totalSentences++;
                 this.translatedSentences.add(trimmedSentence);
 
                 // Each API call is a promise; insert translation when done
-                const promise = translateSentence("russian", trimmedSentence)
+                const promise = translateSentence(storageInfo.language, trimmedSentence)
                     .then(result => {
                         const translatedText = result?.choices?.[0]?.message?.content?.trim() || trimmedSentence;
                         insertTranslatedSentence(el, trimmedSentence, translatedText);
