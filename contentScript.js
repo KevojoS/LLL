@@ -224,6 +224,40 @@ const wrapTextNodes = (el) => {
     });
 };
 
+const isElementVisible = (element) => {
+    if (!element) return false;
+    
+    const style = window.getComputedStyle(element);
+    
+    // Check basic visibility
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    
+    // Check opacity
+    if (parseFloat(style.opacity) === 0) return false;
+    
+    // Check if positioned off-screen
+    if (style.position === 'fixed' || style.position === 'absolute') {
+        const rect = element.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return false;
+        if (rect.right < 0 || rect.bottom < 0) return false;
+        if (rect.left > window.innerWidth || rect.top > window.innerHeight) return false;
+    }
+    
+    // Check clip/clip-path
+    if (style.clip === 'rect(0px, 0px, 0px, 0px)' || style.clipPath === 'inset(100%)') return false;
+    
+    // Check parent chain visibility
+    let parent = element.parentElement;
+    while (parent && parent !== document.body) {
+        const parentStyle = window.getComputedStyle(parent);
+        if (parentStyle.display === 'none' || parentStyle.visibility === 'hidden') return false;
+        if (parseFloat(parentStyle.opacity) === 0) return false;
+        parent = parent.parentElement;
+    }
+    
+    return true;
+};
+
 const webScrape = (dom) => {
     const elements = dom.querySelectorAll(`
     p, h1, h2, h3, h4, h5, h6, article, strong, mark, em, span, div
@@ -233,13 +267,43 @@ const webScrape = (dom) => {
         elementsArray = elementsArray.concat(getActualtext(element))
     }
     elementsArray = elementsArray.filter(item => {
-            const style = window.getComputedStyle(item);
-            if (style.display === 'none' || style.visibility === 'hidden' || style.position === 'fixed') return false;
+            // Check hidden class
+            if (item.classList.contains('hidden')) return false;
+            
+            // Check aria-hidden
+            if (item.getAttribute('aria-hidden') === 'true') return false;
+            
+            // Check visibility
+            if (!isElementVisible(item)) return false;
+            
+            // Check text content quality
+            const text = item.textContent.trim();
+            if (text.length === 0) return false;
+            
+            if (text.includes('\n')) return false;
+            
+            // Filter out navigation, header, footer elements
+            const parentNav = item.closest('nav, header, footer, aside');
+            if (parentNav) {
+                const navStyle = window.getComputedStyle(parentNav);
+                if (navStyle.position === 'fixed' || navStyle.position === 'sticky') return false;
+            }
+            
+            // Filter out very short content (likely buttons, labels, etc.)
+            if (text.length < 10) return false;
+            
             return true;
         })
-        .filter(element => !element.classList.contains('hidden'))
         .map((element, index) => ({ id: `element-${index}`, element: element }));
 
+    // Remove duplicates based on text content
+    const seenTexts = new Set();
+    elementsArray = elementsArray.filter(item => {
+        const text = getFullText(item.element);
+        if (seenTexts.has(text)) return false;
+        seenTexts.add(text);
+        return true;
+    });
 
     let sentencesArray = Array.from(elementsArray).map(
         element => ({ id: element.id, el: element.element, textArray: getFullText(element.element).match(/[A-Z][^.?!]*[.?!]/g) || [] })
@@ -249,14 +313,6 @@ const webScrape = (dom) => {
     console.log(sentencesArray);
     return (sentencesArray)
 }
-
-const highlightsentencesArray = (sentencesArray) => {
-    sentencesArray.forEach(element => {
-        const el = element.el;
-        if (!el) return;
-        wrapTextNodes(el);
-    });
-};
 
 
 // highlightsentencesArray(webScrape(document))
