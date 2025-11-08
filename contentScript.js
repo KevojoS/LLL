@@ -38,6 +38,117 @@ async function translateSentence(language, sentence) { //fragile no error checki
     console.error("Fetch error:", error);
   }
 }
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes fadeInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    .translated-sentence {
+        animation: fadeInLeft 1.3s ease-out;
+        color: #2CB2B2;
+    }
+`;
+document.head.appendChild(style);
+
+// Function to insert a translated sentence into its element
+function insertTranslatedSentence(el, sentence, translatedText, opts = {}) {
+    const fullText = el.textContent;
+    const sentenceStart = fullText.indexOf(sentence);
+    if (sentenceStart === -1) return; // sentence not found
+    const sentenceEnd = sentenceStart + sentence.length;
+
+    // Collect all text nodes
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+    const textNodes = [];
+    let currentPos = 0;
+    let node;
+    while (node = walker.nextNode()) {
+        const nodeLength = node.textContent.length;
+        textNodes.push({
+            node,
+            parent: node.parentNode,
+            start: currentPos,
+            end: currentPos + nodeLength,
+            text: node.textContent
+        });
+        currentPos += nodeLength;
+    }
+
+    // Find affected nodes
+    const affectedNodes = textNodes.filter(n => n.start < sentenceEnd && n.end > sentenceStart);
+    if (!affectedNodes.length) return;
+
+    // Create translated span (no animation)
+    const tempDiv = document.createElement('div');
+    tempDiv.textContent = translatedText;
+    wrapTextNodes(tempDiv);
+
+    const translatedSpan = document.createElement('span');
+    translatedSpan.className = 'translated-sentence';
+    translatedSpan.style.display = 'inline';
+    while (tempDiv.firstChild) translatedSpan.appendChild(tempDiv.firstChild);
+
+    const elementsToRemove = new Set();
+
+    // Replace nodes (from last to first)
+    for (let i = affectedNodes.length - 1; i >= 0; i--) {
+        const nodeInfo = affectedNodes[i];
+        const node = nodeInfo.node;
+        const parent = nodeInfo.parent;
+        const overlapStart = Math.max(0, sentenceStart - nodeInfo.start);
+        const overlapEnd = Math.min(node.textContent.length, sentenceEnd - nodeInfo.start);
+
+        const before = node.textContent.substring(0, overlapStart);
+        const after = node.textContent.substring(overlapEnd);
+
+        if (parent !== el && parent.nodeType === Node.ELEMENT_NODE) {
+            const parentText = parent.textContent;
+            if (sentence.includes(parentText.trim()) && overlapStart === 0 && overlapEnd === node.textContent.length) {
+                elementsToRemove.add(parent);
+            }
+        }
+
+        if (i === 0) {
+            const fragment = document.createDocumentFragment();
+            if (before) fragment.appendChild(document.createTextNode(before));
+            fragment.appendChild(translatedSpan);
+            if (i === affectedNodes.length - 1 && after) fragment.appendChild(document.createTextNode(after));
+
+            if (elementsToRemove.has(parent)) {
+                parent.parentNode.replaceChild(fragment, parent);
+                elementsToRemove.delete(parent);
+            } else {
+                parent.replaceChild(fragment, node);
+            }
+        } else if (i === affectedNodes.length - 1) {
+            if (elementsToRemove.has(parent)) {
+                if (after) parent.parentNode.replaceChild(document.createTextNode(after), parent);
+                else parent.remove();
+                elementsToRemove.delete(parent);
+            } else {
+                if (after) node.textContent = after;
+                else parent.removeChild(node);
+            }
+        } else {
+            if (elementsToRemove.has(parent)) {
+                parent.remove();
+                elementsToRemove.delete(parent);
+            } else {
+                parent.removeChild(node);
+            }
+        }
+    }
+
+    // Remove any remaining elements
+    elementsToRemove.forEach(el => el.remove());
+}
 
 async function testTranslations() {
     /*
@@ -319,158 +430,56 @@ const webScrape = (dom) => {
 
 (async () => {
     const sentencesArray = webScrape(document);
-    if (sentencesArray.length === 0 || sentencesArray[0].textArray.length === 0) {
-        console.log("No sentences to translate.");
-        return;
-    }
+    if (!sentencesArray.length || !sentencesArray[0].textArray.length) return;
+
     const firstElement = sentencesArray[0];
     const firstSentence = firstElement.textArray[0].trim();
-    console.log("Translating first sentence:", firstSentence);
-    
-    // Translate the first sentence
+
     const translationResult = await translateSentence("russian", firstSentence);
     const translatedText = translationResult?.choices?.[0]?.message?.content?.trim() || firstSentence;
-    
-    const el = firstElement.el;
-    
-    // Find the sentence in the full text
-    const fullText = el.textContent;
-    const sentenceStart = fullText.indexOf(firstSentence);
-    
-    if (sentenceStart === -1) {
-        console.log("Could not find sentence in element");
-        return;
-    }
-    
-    const sentenceEnd = sentenceStart + firstSentence.length;
-    
-    console.log(`Sentence position: ${sentenceStart} to ${sentenceEnd}`);
-    
-    // Collect all text nodes with their positions
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
-    const textNodes = [];
-    let currentPos = 0;
-    let node;
-    
-    while (node = walker.nextNode()) {
-        const nodeLength = node.textContent.length;
-        textNodes.push({
-            node: node,
-            parent: node.parentNode,
-            start: currentPos,
-            end: currentPos + nodeLength,
-            text: node.textContent
-        });
-        currentPos += nodeLength;
-    }
-    
-    // Find which nodes the sentence spans
-    const affectedNodes = textNodes.filter(n => 
-        (n.start < sentenceEnd && n.end > sentenceStart)
-    );
-    
-    if (affectedNodes.length === 0) {
-        console.log("No affected nodes found");
-        return;
-    }
-    
-    console.log("Affected nodes:", affectedNodes.length);
-    
-    // Create the translated span
-    const tempDiv = document.createElement('div');
-    tempDiv.textContent = translatedText;
-    wrapTextNodes(tempDiv);
-    
-    const translatedSpan = document.createElement('span');
-    translatedSpan.className = 'translated-sentence';
-    translatedSpan.style.display = 'inline';
-    while (tempDiv.firstChild) {
-        translatedSpan.appendChild(tempDiv.firstChild);
-    }
-    
-    // Track elements to remove (like <a> tags that are fully within the sentence)
-    const elementsToRemove = new Set();
-    
-    // Process nodes from last to first to avoid position shifts
-    for (let i = affectedNodes.length - 1; i >= 0; i--) {
-        const nodeInfo = affectedNodes[i];
-        const node = nodeInfo.node;
-        const parent = nodeInfo.parent;
-        const nodeStart = nodeInfo.start;
-        
-        // Calculate what part of this node is in the sentence
-        const overlapStart = Math.max(0, sentenceStart - nodeStart);
-        const overlapEnd = Math.min(node.textContent.length, sentenceEnd - nodeStart);
-        
-        const before = node.textContent.substring(0, overlapStart);
-        const after = node.textContent.substring(overlapEnd);
-        
-        // Check if parent element (like <a>) is fully within the sentence
-        if (parent !== el && parent.nodeType === Node.ELEMENT_NODE) {
-            const parentText = parent.textContent;
-            const parentInSentence = firstSentence.includes(parentText.trim());
-            
-            if (parentInSentence && overlapStart === 0 && overlapEnd === node.textContent.length) {
-                // This entire element is within the sentence, mark for removal
-                elementsToRemove.add(parent);
-            }
-        }
-        
-        if (i === 0) {
-            // First affected node
-            const fragment = document.createDocumentFragment();
-            
-            if (before) {
-                fragment.appendChild(document.createTextNode(before));
-            }
-            fragment.appendChild(translatedSpan);
-            
-            if (i === affectedNodes.length - 1 && after) {
-                // Also last node
-                fragment.appendChild(document.createTextNode(after));
-            }
-            
-            // If parent should be removed, replace the parent instead
-            if (elementsToRemove.has(parent)) {
-                const grandparent = parent.parentNode;
-                grandparent.replaceChild(fragment, parent);
-                elementsToRemove.delete(parent); // Already handled
-            } else {
-                parent.replaceChild(fragment, node);
-            }
-        } else if (i === affectedNodes.length - 1) {
-            // Last affected node
-            if (elementsToRemove.has(parent)) {
-                if (after) {
-                    // Replace parent element with just the after text
-                    const grandparent = parent.parentNode;
-                    grandparent.replaceChild(document.createTextNode(after), parent);
-                } else {
-                    parent.remove();
-                }
-                elementsToRemove.delete(parent);
-            } else {
-                if (after) {
-                    node.textContent = after;
-                } else {
-                    parent.removeChild(node);
-                }
-            }
-        } else {
-            // Middle node
-            if (elementsToRemove.has(parent)) {
-                parent.remove();
-                elementsToRemove.delete(parent);
-            } else {
-                parent.removeChild(node);
-            }
-        }
-    }
-    
-    // Clean up any remaining elements marked for removal
-    elementsToRemove.forEach(el => el.remove());
-    
-    // Re-apply tooltip handlers
+
+    insertTranslatedSentence(firstElement.el, firstSentence, translatedText);
+
     addTooltipHandlersToSelected();
     console.log("First sentence translated and inserted:", translatedText);
 })();
+
+// Only translate and insert the first sentence, using insertTranslatedSentence
+
+
+
+//Call for everysentence
+
+// (async () => {
+//     const sentencesArray = webScrape(document);
+//     if (!sentencesArray.length) return;
+
+//     // Collect all sentence jobs
+//     const translationPromises = [];
+
+//     for (const elementObj of sentencesArray) {
+//         const el = elementObj.el;
+
+//         for (const sentence of elementObj.textArray) {
+//             const trimmedSentence = sentence.trim();
+//             if (!trimmedSentence) continue;
+
+//             // Each API call is a promise; insert translation when done
+//             const promise = translateSentence("russian", trimmedSentence)
+//                 .then(result => {
+//                     const translatedText = result?.choices?.[0]?.message?.content?.trim() || trimmedSentence;
+//                     insertTranslatedSentence(el, trimmedSentence, translatedText);
+//                     console.log("Translated:", translatedText);
+//                 })
+//                 .catch(err => console.error("Error translating sentence:", trimmedSentence, err));
+
+//             translationPromises.push(promise);
+//         }
+//     }
+
+//     // Wait for all translations to finish
+//     await Promise.all(translationPromises);
+
+//     addTooltipHandlersToSelected();
+//     console.log("All sentences translated and inserted.");
+// })();
