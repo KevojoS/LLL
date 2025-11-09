@@ -142,6 +142,7 @@ body {
     border-radius: var(--border-radius);
     background-color: var(--white);
     font-family: inherit;
+    font-weight: 700;
     font-size: 14px;
     color: var(--dark-gray);
     cursor: pointer;

@@ -2,7 +2,7 @@ const translationCache = new Map();
 
 // DO NOT hardcode API keys - use chrome.storage or your backend instead
 // const API_KEY = '...'; // REMOVE THIS
-API_KEY = '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'
+API_KEY = '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'
 
 // Enhanced rate limiter with per-domain tracking
 class RequestQueue {
