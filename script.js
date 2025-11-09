@@ -7,11 +7,8 @@ const difficultyIndicators = document.getElementById('difficultyIndicators').que
 // CEFR levels
 const cefrLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
-let difficultyTracker = 0;
-difficultyTracker = difficultySlider.value
-
 function updateDifficultyDisplay() {
-    const levelIndex = parseInt(difficultySlider.value)-1;
+    const levelIndex = parseInt(difficultySlider.value);
     const language = languageSelect.options[languageSelect.selectedIndex].text;
     difficultyValue.textContent = `${language} - ${cefrLevels[levelIndex]}`;
     // Update active level indicator
