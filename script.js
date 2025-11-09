@@ -22,23 +22,9 @@ function updateDifficultyDisplay() {
             indicator.classList.remove('active-level');
         }
     });
-    chrome.storage.sync.get('difficultyLevel' , (data) => {
-        const previousLevel = data.difficultyLevel;
-        chrome.storage.sync.set({
-            difficultyLevel: levelIndex,
-            selectedLanguage: language
-        });
-        if (previousLevel !== undefined && levelIndex < previousLevel) {
-            console.log('Reloading the page because easier level selected');
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                if (tabs[0]) {
-                    chrome.scripting.executeScript({
-                        target: { tabId: tabs[0].id },
-                        func: () => location.reload()
-                    });
-                }
-            });
-        }
+    chrome.storage.sync.set({
+        difficultyLevel: levelIndex,
+        selectedLanguage: language
     });
 }
 
@@ -69,20 +55,7 @@ function updateVolumeDisplay() {
     });
 
     // Save volume to chrome.storage.sync (mimic difficulty saving)
-    chrome.storage.sync.get('volumeLevel', (data) => {
-        const previousVolume = data.volumeLevel;
-        chrome.storage.sync.set({ volumeLevel: volume });
-        if (previousVolume !== undefined && volume < previousVolume) {
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                if (tabs[0]) {
-                    chrome.scripting.executeScript({
-                        target: { tabId: tabs[0].id },
-                        func: () => location.reload()
-                    });
-                }
-            });
-        }
-    });
+    chrome.storage.sync.set({ volumeLevel: volume });
 }
 
 volumeSlider.addEventListener('input', updateVolumeDisplay);
@@ -168,16 +141,6 @@ chrome.storage.sync.get(['difficultyLevel', 'volumeLevel', 'selectedLanguage', '
 document.getElementById('extensionToggle').addEventListener('change', function () {
     const isEnabled = this.checked;
     chrome.storage.sync.set({ extensionEnabled: isEnabled });
-
-    // Reload the current active tab
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]) {
-            chrome.scripting.executeScript({
-                target: { tabId: tabs[0].id },
-                func: () => location.reload()
-            });
-        }
-    });
 });
 
 console.log("Ran scriptjs");
