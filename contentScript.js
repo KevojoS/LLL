@@ -1,40 +1,179 @@
+const translationCache = new Map();
+
+// DO NOT hardcode API keys - use chrome.storage or your backend instead
+// const API_KEY = '...'; // REMOVE THIS
 API_KEY = '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'
+// Get current volume level from chrome.storage
+chrome.storage.sync.get(['volumeLevel', 'extensionEnabled'], (data) => {
+    if (data.extensionEnabled === false) {
+        console.log("Extension is disabled");
+        return;
+    }
+    const volume = data.volumeLevel !== undefined ? data.volumeLevel : 100;
+    console.log("Current volume level:", volume);
 
-async function translateSentence(language, sentence) {
-  try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-        Authorization: `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-        model: 'anthropic/claude-sonnet-4.5',
-        messages: [
-        {
-            role: 'user',
-            content: `Translate the following sentence with no explanation or additional info into ${language}: ${sentence}`
-        },
-        ],
-        provider: {
-            sort: 'latency'
-        }
-    }),
-    });
+    const translationManager = new TranslationManager(volume);
+    translationManager.translateViewport();
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    // Add scroll listener
+    window.addEventListener('scroll', () => {
+        translationManager.onScroll();
+    }, { passive: true });
+});
+
+// Rate limiter - queue requests with delay between them
+class RequestQueue {
+    constructor(delayMs = 500) {
+        this.queue = [];
+        this.isProcessing = false;
+        this.delayMs = delayMs;
     }
 
-    const data = await response.json();
-    console.log(data["choices"][0]["message"]["content"])
-    return data;
-  } catch (error) {
-    console.error("Fetch error:", error);
-    throw error; // Re-throw so caller knows it failed
-  }
+    async add(fn) {
+        return new Promise((resolve, reject) => {
+            this.queue.push({ fn, resolve, reject });
+            this.process();
+        });
+    }
+
+    async process() {
+        if (this.isProcessing || this.queue.length === 0) return;
+        
+        this.isProcessing = true;
+        
+        while (this.queue.length > 0) {
+            const { fn, resolve, reject } = this.queue.shift();
+            try {
+                const result = await fn();
+                resolve(result);
+            } catch (error) {
+                reject(error);
+            }
+            
+            // Wait before next request
+            if (this.queue.length > 0) {
+                await new Promise(r => setTimeout(r, this.delayMs));
+            }
+        }
+        
+        this.isProcessing = false;
+    }
 }
 
+const requestQueue = new RequestQueue(600); // 600ms delay between requests
+
+async function translateSentence(language, text) {
+    try {
+        // Map language names to language codes for MyMemory
+        const languageMap = {
+            'russian': 'ru',
+            'french': 'fr',
+            'spanish': 'es',
+            'german': 'de',
+            'italian': 'it',
+            'japanese': 'ja',
+            'korean': 'ko',
+            'chinese': 'zh'
+        };
+
+        const sourceLang = languageMap[language.toLowerCase()] || 'ru';
+        const email = "kaunghtetsan6574@gmail.com"
+
+        const response = await fetch(
+            `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang}|en&de=${encodeURIComponent(email)}`
+        );
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const translatedText = data.responseData.translatedText;
+
+        console.log("MyMemory translation:", translatedText);
+
+        return {
+            choices: [{
+                message: {
+                    content: translatedText
+                }
+            }]
+        };
+    } catch (error) {
+        console.error("Fetch error:", error);
+        throw error;
+    }
+}
+
+function getRandomElements(array, n) {
+    if (n > array.length) {
+        throw new Error("Cannot select more elements than exist in the array");
+    }
+
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    return shuffled.slice(0, n);
+}
+
+// New function to translate back to English using MyMemory API
+async function translateToEnglish(text, sourceLanguage) {
+    const cacheKey = `en:${text}`;
+    if (translationCache.has(cacheKey)) {
+        console.log("Using cached translation:", translationCache.get(cacheKey));
+        return translationCache.get(cacheKey);
+    }
+
+    try {
+        console.log("Translating to English:", text, "from", sourceLanguage);
+
+        const languageMap = {
+            'russian': 'ru',
+            'french': 'fr',
+            'spanish': 'es',
+            'german': 'de',
+            'italian': 'it',
+            'japanese': 'ja',
+            'korean': 'ko',
+            'chinese': 'zh'
+        };
+
+        const sourceLang = languageMap[sourceLanguage.toLowerCase()] || 'ru';
+
+        const response = await fetch(
+            `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang}|en`
+        );
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const translation = data.responseData.translatedText || text;
+
+        translationCache.set(cacheKey, translation);
+        console.log("English translation:", translation);
+
+        return translation;
+    } catch (error) {
+        console.error("Translation error:", error);
+        return text;
+    }
+}
+
+const languageNameMap = {
+    'russian': 'Russian',
+    'french': 'French',
+    'spanish': 'Spanish',
+    'german': 'German',
+    'italian': 'Italian',
+    'japanese': 'Japanese',
+    'korean': 'Korean',
+    'chinese': 'Chinese'
+};
 async function getUserSettings() {
     const data = await chrome.storage.sync.get(['difficultyLevel', 'selectedLanguage']);
     return {
@@ -57,23 +196,160 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 
 const style = document.createElement('style');
 style.textContent = `
-    @keyframes fadeInLeft {
-        from {
-            opacity: 0;
-            transform: translateX(-10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
-    }
-    .translated-sentence {
-        animation: fadeInLeft 0.6s ease-out;
-        color: #2CB2B2;
-    }
-    
+ @keyframes fadeInLeft {
+ from {
+ opacity: 0;
+ transform: translateX(-10px);
+ }
+ to {
+ opacity: 1;
+ transform: translateX(0);
+ }
+ }
+ .translated-sentence {
+ animation: fadeInLeft 0.6s ease-out;
+ color: #2CB2B2;
+ }
+ 
+ .translated-word {
+ cursor: pointer;
+ position: relative;
+ display: inline;
+ }
+ 
+ .translation-tooltip {
+ position: fixed;
+ background: linear-gradient(180deg, rgba(44,178,178,0.95) 0%, rgba(26,140,140,0.95) 100%);
+ border: 2px solid rgba(255,255,255,0.3);
+ backdrop-filter: blur(12px) saturate(150%);
+ -webkit-backdrop-filter: blur(12px) saturate(150%);
+ color: #fff;
+ padding: 12px 16px;
+ border-radius: 12px;
+ font-size: 15px;
+ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+ box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255,255,255,0.3);
+ pointer-events: none;
+ z-index: 999999;
+ transition: opacity 0.25s ease, transform 0.25s ease;
+ opacity: 0;
+ transform: translateY(-5px);
+ max-width: 300px;
+ word-wrap: break-word;
+ }
+ 
+ .translation-tooltip.visible {
+ opacity: 1;
+ transform: translateY(0);
+ }
+ 
+ .translation-tooltip-header {
+ font-size: 11px;
+ opacity: 0.8;
+ margin-bottom: 4px;
+ text-transform: uppercase;
+ letter-spacing: 0.5px;
+ }
+ 
+ .translation-tooltip-text {
+ font-weight: 600;
+ font-size: 16px;
+ }
 `;
 document.head.appendChild(style);
+
+
+// Function to insert a translated sentence into its element
+function insertTranslatedSentence(el, sentence, translatedText) {
+    const fullText = el.textContent;
+    const sentenceStart = fullText.indexOf(sentence);
+    if (sentenceStart === -1) return;
+    const sentenceEnd = sentenceStart + sentence.length;
+
+    // Collect all text nodes
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+    const textNodes = [];
+    let currentPos = 0;
+    let node;
+    while (node = walker.nextNode()) {
+        const nodeLength = node.textContent.length;
+        textNodes.push({
+            node,
+            parent: node.parentNode,
+            start: currentPos,
+            end: currentPos + nodeLength,
+            text: node.textContent
+        });
+        currentPos += nodeLength;
+    }
+
+    // Find affected nodes
+    const affectedNodes = textNodes.filter(n => n.start < sentenceEnd && n.end > sentenceStart);
+    if (!affectedNodes.length) return;
+
+    // Create translated span
+    const tempDiv = document.createElement('div');
+    tempDiv.textContent = translatedText;
+    wrapTextNodes(tempDiv);
+
+    const translatedSpan = document.createElement('span');
+    translatedSpan.className = 'translated-sentence';
+    translatedSpan.style.display = 'inline';
+    while (tempDiv.firstChild) translatedSpan.appendChild(tempDiv.firstChild);
+
+    const elementsToRemove = new Set();
+
+    // Replace nodes (from last to first)
+    for (let i = affectedNodes.length - 1; i >= 0; i--) {
+        const nodeInfo = affectedNodes[i];
+        const node = nodeInfo.node;
+        const parent = nodeInfo.parent;
+        const overlapStart = Math.max(0, sentenceStart - nodeInfo.start);
+        const overlapEnd = Math.min(node.textContent.length, sentenceEnd - nodeInfo.start);
+
+        const before = node.textContent.substring(0, overlapStart);
+        const after = node.textContent.substring(overlapEnd);
+
+        if (parent !== el && parent.nodeType === Node.ELEMENT_NODE) {
+            const parentText = parent.textContent;
+            if (sentence.includes(parentText.trim()) && overlapStart === 0 && overlapEnd === node.textContent.length) {
+                elementsToRemove.add(parent);
+            }
+        }
+
+        if (i === 0) {
+            const fragment = document.createDocumentFragment();
+            if (before) fragment.appendChild(document.createTextNode(before));
+            fragment.appendChild(translatedSpan);
+            if (i === affectedNodes.length - 1 && after) fragment.appendChild(document.createTextNode(after));
+
+            if (elementsToRemove.has(parent)) {
+                parent.parentNode.replaceChild(fragment, parent);
+                elementsToRemove.delete(parent);
+            } else {
+                parent.replaceChild(fragment, node);
+            }
+        } else if (i === affectedNodes.length - 1) {
+            if (elementsToRemove.has(parent)) {
+                if (after) parent.parentNode.replaceChild(document.createTextNode(after), parent);
+                else parent.remove();
+                elementsToRemove.delete(parent);
+            } else {
+                if (after) node.textContent = after;
+                else parent.removeChild(node);
+            }
+        } else {
+            if (elementsToRemove.has(parent)) {
+                parent.remove();
+                elementsToRemove.delete(parent);
+            } else {
+                parent.removeChild(node);
+            }
+        }
+    }
+
+    elementsToRemove.forEach(el => el.remove());
+}
 
 // Tooltip logic
 const tooltip = document.createElement('div');
