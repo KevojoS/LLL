@@ -1,7 +1,3 @@
-const translationCache = new Map();
-
-// DO NOT hardcode API keys - use chrome.storage or your backend instead
-// const API_KEY = '...'; // REMOVE THIS
 API_KEY = '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'
 
 async function translateSentence(language, sentence) {
