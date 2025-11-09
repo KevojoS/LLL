@@ -608,12 +608,15 @@ function injectTranslation(parentElement, translationData) {
   const translatedBlock = document.createElement('span');
   translatedBlock.className = 'translated-block';
   translatedBlock.style.cssText = `
-    background: rgba(119, 255, 124, 0.298);
-    border-radius: 4px;
-    padding: 0 2px;
-    font-size: inherit;
-    font-family: inherit;
-    display: inline;
+      background: rgba(44, 178, 178, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+      padding: 2px 4px;
+      font-size: inherit;
+      font-family: inherit;
+      display: inline;
+      transition: background 0.3s ease, box-shadow 0.3s ease;
   `;
   
   // Check if this is a space-separated language or not (like Chinese/Japanese)
