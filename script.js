@@ -9,6 +9,7 @@ const cefrLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
 let difficultyTracker = 0;
 difficultyTracker = difficultySlider.value
+
 function updateDifficultyDisplay() {
     const levelIndex = parseInt(difficultySlider.value)-1;
     const language = languageSelect.options[languageSelect.selectedIndex].text;
@@ -21,7 +22,7 @@ function updateDifficultyDisplay() {
             indicator.classList.remove('active-level');
         }
     });
-    chrome.storage.sync.get('difficultyLevel', (data) => {
+    chrome.storage.sync.get('difficultyLevel' , (data) => {
         const previousLevel = data.difficultyLevel;
         chrome.storage.sync.set({
             difficultyLevel: levelIndex,
@@ -64,6 +65,22 @@ function updateVolumeDisplay() {
             indicator.classList.add('active-level');
         } else {
             indicator.classList.remove('active-level');
+        }
+    });
+
+    // Save volume to chrome.storage.sync (mimic difficulty saving)
+    chrome.storage.sync.get('volumeLevel', (data) => {
+        const previousVolume = data.volumeLevel;
+        chrome.storage.sync.set({ volumeLevel: volume });
+        if (previousVolume !== undefined && volume < previousVolume) {
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (tabs[0]) {
+                    chrome.scripting.executeScript({
+                        target: { tabId: tabs[0].id },
+                        func: () => location.reload()
+                    });
+                }
+            });
         }
     });
 }
@@ -123,9 +140,12 @@ document.querySelectorAll('.action-button, .progress-badges').forEach(button => 
 
 // Initialize displays
 // Restore saved difficulty and language settings
-chrome.storage.sync.get(['difficultyLevel', 'selectedLanguage', 'extensionEnabled'], (data) => {
+chrome.storage.sync.get(['difficultyLevel', 'volumeLevel', 'selectedLanguage', 'extensionEnabled'], (data) => {
     if (data.difficultyLevel !== undefined) {
-        difficultySlider.value = data.difficultyLevel; // adjust for index offset
+        difficultySlider.value = data.difficultyLevel;
+    }
+    if (data.volumeLevel !== undefined) {
+        volumeSlider.value = data.volumeLevel;
     }
     if (data.selectedLanguage) {
         [...languageSelect.options].forEach((option, i) => {
@@ -134,10 +154,18 @@ chrome.storage.sync.get(['difficultyLevel', 'selectedLanguage', 'extensionEnable
             }
         });
     }
-    updateDifficultyDisplay();
-
+    
     // Set toggle state
-    document.getElementById('extensionToggle').addEventListener('change', function () {
+    if (data.extensionEnabled !== undefined) {
+        document.getElementById('extensionToggle').checked = data.extensionEnabled;
+    }
+    
+    updateDifficultyDisplay();
+    updateVolumeDisplay();
+});
+
+// Extension toggle listener - ONLY ONE
+document.getElementById('extensionToggle').addEventListener('change', function () {
     const isEnabled = this.checked;
     chrome.storage.sync.set({ extensionEnabled: isEnabled });
 
@@ -151,16 +179,5 @@ chrome.storage.sync.get(['difficultyLevel', 'selectedLanguage', 'extensionEnable
         }
     });
 });
-});
 
-updateVolumeDisplay();
-
-// Toggle functionality
-document.getElementById('extensionToggle').addEventListener('change', function () {
-    const isEnabled = this.checked;
-    chrome.storage.sync.set({ extensionEnabled: isEnabled });
-});
-
-updateVolumeDisplay();
-
-console.log("Ran scriptjs")
+console.log("Ran scriptjs");
