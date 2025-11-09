@@ -21,7 +21,7 @@ class RequestQueue {
         if (!this.queues.has(domain)) {
             this.queues.set(domain, []);
         }
-        
+
         return new Promise((resolve, reject) => {
             this.queues.get(domain).push({ fn, resolve, reject });
             this.process();
@@ -30,9 +30,9 @@ class RequestQueue {
 
     async process() {
         if (this.isProcessing) return;
-        
+
         this.isProcessing = true;
-        
+
         while (this.hasPendingRequests()) {
             for (const [domain, queue] of this.queues) {
                 if (queue.length > 0) {
@@ -43,18 +43,18 @@ class RequestQueue {
                     } catch (error) {
                         reject(error);
                     }
-                    
+
                     // Wait before next request to this domain
                     if (queue.length > 0) {
                         await new Promise(r => setTimeout(r, this.domainDelays[domain] || 1000));
                     }
                 }
             }
-            
+
             // Small delay between domain cycles
             await new Promise(r => setTimeout(r, 100));
         }
-        
+
         this.isProcessing = false;
     }
 
@@ -104,12 +104,12 @@ async function toEnglishSentence(language, sentence) {
         const response = await fetch(
             `https://simplytranslate.org/api/translate?text=${encodeURIComponent(cleanSentence)}&to=${targetLang}&engine=google`
         );
-        
+
         if (response.ok) {
             const data = await response.json();
             const translatedText = data.translated_text;
             console.log("✅ SimplyTranslate success:", translatedText);
-            
+
             return {
                 choices: [{
                     message: {
@@ -125,7 +125,7 @@ async function toEnglishSentence(language, sentence) {
     // Fallback: Return a simple mock translation for testing
     console.log("Using mock translation for testing");
     const mockTranslation = `[${targetLang.toUpperCase()}] ${cleanSentence}`;
-    
+
     return {
         choices: [{
             message: {
@@ -157,17 +157,17 @@ async function translateSentence(language, sentence) {
     }),
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-    const data = await response.json();
-    console.log(data["choices"][0]["message"]["content"])
-    return data;
-  } catch (error) {
-    console.error("Fetch error:", error);
-    throw error; // Re-throw so caller knows it failed
-  }
+        const data = await response.json();
+        console.log(data["choices"][0]["message"]["content"])
+        return data;
+    } catch (error) {
+        console.error("Fetch error:", error);
+        throw error; // Re-throw so caller knows it failed
+    }
 }
 
 async function getUserSettings() {
@@ -362,118 +362,118 @@ async function showTranslationTooltip(element, translatedWord, originalWord, x, 
 }
 
 function isVisible(element) {
-  if (!element || !element.isConnected || element.nodeType !== Node.ELEMENT_NODE) return false;
+    if (!element || !element.isConnected || element.nodeType !== Node.ELEMENT_NODE) return false;
 
-  const style = window.getComputedStyle(element);
+    const style = window.getComputedStyle(element);
 
-  if (
-    style.display === "none" ||
-    style.visibility === "hidden" ||
-    style.opacity === "0" ||
-    style.clipPath === "inset(100%)" ||
-    style.position === "absolute" && style.left === "-9999px"
-  ) {
-    return false;
-  }
+    if (
+        style.display === "none" ||
+        style.visibility === "hidden" ||
+        style.opacity === "0" ||
+        style.clipPath === "inset(100%)" ||
+        style.position === "absolute" && style.left === "-9999px"
+    ) {
+        return false;
+    }
 
-  const rect = element.getBoundingClientRect();
-  if (rect.width === 0 || rect.height === 0) return false;
+    const rect = element.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return false;
 
-  return true;
+    return true;
 }
 
 const TO_ANALYZE_TEXT_CONTAINERS = new Set([
-  "P",
-  "SPAN",
-  "DIV",
-  "H1",
-  "H2",
-  "H3",
-  "H4",
-  "H5",
-  "H6",
-  "LI",
-  "A",
-  "BUTTON",
-  "LABEL",
-  "STRONG",
-  "EM",
-  "B",
-  "I",
-  "TD",
-  "TH"
+    "P",
+    "SPAN",
+    "DIV",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6",
+    "LI",
+    "A",
+    "BUTTON",
+    "LABEL",
+    "STRONG",
+    "EM",
+    "B",
+    "I",
+    "TD",
+    "TH"
 ]);
 
 function shouldAnalyze(text, parent) {
-  if (text === null || parent === null) return false;
-  return (
-    text.trim().length > 0 &&
-    TO_ANALYZE_TEXT_CONTAINERS.has(parent.tagName) &&
-    isVisible(parent)
-  )
+    if (text === null || parent === null) return false;
+    return (
+        text.trim().length > 0 &&
+        TO_ANALYZE_TEXT_CONTAINERS.has(parent.tagName) &&
+        isVisible(parent)
+    )
 }
 
 async function grabNodesIn(root) {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-  const matches = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    const matches = [];
 
-  while (walker.nextNode()) {
-    const node = walker.currentNode;
-    const parent = node.parentElement;
-    if (!parent || !shouldAnalyze(node.textContent, parent)) continue;
+    while (walker.nextNode()) {
+        const node = walker.currentNode;
+        const parent = node.parentElement;
+        if (!parent || !shouldAnalyze(node.textContent, parent)) continue;
 
-    const text = node.textContent?.trim();
-    if (!text) continue;
+        const text = node.textContent?.trim();
+        if (!text) continue;
 
-    matches.push({ node, parent, text });
-  }
+        matches.push({ node, parent, text });
+    }
 
-  return matches;
+    return matches;
 }
 
 // Helper function to split text into sentences
 function splitIntoSentences(text) {
-  // Split by period, exclamation mark, or question mark followed by space or end of string
-  // This regex keeps the punctuation with each sentence
-  const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
-  
-  // Handle case where text doesn't end with punctuation
-  const lastMatch = sentences.join('');
-  if (lastMatch.length < text.length) {
-    const remainder = text.slice(lastMatch.length).trim();
-    if (remainder) {
-      sentences.push(remainder);
+    // Split by period, exclamation mark, or question mark followed by space or end of string
+    // This regex keeps the punctuation with each sentence
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
+
+    // Handle case where text doesn't end with punctuation
+    const lastMatch = sentences.join('');
+    if (lastMatch.length < text.length) {
+        const remainder = text.slice(lastMatch.length).trim();
+        if (remainder) {
+            sentences.push(remainder);
+        }
     }
-  }
-  
-  return sentences.map(s => s.trim()).filter(s => s.length > 0);
+
+    return sentences.map(s => s.trim()).filter(s => s.length > 0);
 }
 
 // Helper function to check if a sentence meets the criteria
 function isValidSentence(sentence) {
-  const trimmed = sentence.trim();
-  if (trimmed.length === 0) return false;
-  
-  // Check if starts with capital letter
-  const startsWithCapital = /^[A-Z]/.test(trimmed);
-  
-  // Check if ends with period, exclamation mark, or question mark
-  const endsWithPunctuation = /[.!?]$/.test(trimmed);
-  
-  // Check if has at least 3 words
-  const words = trimmed.split(/\s+/).filter(word => word.length > 0);
-  const hasMinWords = words.length >= 3;
-  
-  console.log('Validating sentence:', {
-    sentence: trimmed,
-    startsWithCapital,
-    endsWithPunctuation,
-    wordCount: words.length,
-    hasMinWords,
-    isValid: startsWithCapital && endsWithPunctuation && hasMinWords
-  });
-  
-  return startsWithCapital && endsWithPunctuation && hasMinWords;
+    const trimmed = sentence.trim();
+    if (trimmed.length === 0) return false;
+
+    // Check if starts with capital letter
+    const startsWithCapital = /^[A-Z]/.test(trimmed);
+
+    // Check if ends with period, exclamation mark, or question mark
+    const endsWithPunctuation = /[.!?]$/.test(trimmed);
+
+    // Check if has at least 3 words
+    const words = trimmed.split(/\s+/).filter(word => word.length > 0);
+    const hasMinWords = words.length >= 3;
+
+    console.log('Validating sentence:', {
+        sentence: trimmed,
+        startsWithCapital,
+        endsWithPunctuation,
+        wordCount: words.length,
+        hasMinWords,
+        isValid: startsWithCapital && endsWithPunctuation && hasMinWords
+    });
+
+    return startsWithCapital && endsWithPunctuation && hasMinWords;
 }
 
 let storageInfo = null;
@@ -756,39 +756,36 @@ function injectTranslation(parentElement, translationData) {
 
 async function translateNodes(matches) {
     for (const { node, parent, text } of matches) {
-        if (Math.random() > (storageInfo.volume/100)) {
-            return;
-        }
 
         // Skip if already processed or inside a translated container
-        if (node.parentElement && 
+        if (node.parentElement &&
             (node.parentElement.hasAttribute('data-translated-container') ||
-             node.parentElement.closest('[data-translated-container]') ||
-             node.parentElement.closest('.translated-block'))) {
+                node.parentElement.closest('[data-translated-container]') ||
+                node.parentElement.closest('.translated-block'))) {
             continue;
         }
-        
+
         const sentences = splitIntoSentences(text);
-        
+
         // Check if we need to add space after this node
-        const needsTrailingSpace = node.nextSibling && 
-                                   node.nextSibling.nodeType === Node.ELEMENT_NODE &&
-                                   !text.endsWith(' ') &&
-                                   !/[.!?,;:\-—]$/.test(text.trim()); // Don't add space after punctuation
-        
-        const needsLeadingSpace = node.previousSibling && 
-                                 node.previousSibling.nodeType === Node.ELEMENT_NODE &&
-                                 !text.startsWith(' ') &&
-                                 !/^[.!?,;:\-—)]/.test(text.trim()); // Don't add space before punctuation or closing paren
-        
+        const needsTrailingSpace = node.nextSibling &&
+            node.nextSibling.nodeType === Node.ELEMENT_NODE &&
+            !text.endsWith(' ') &&
+            !/[.!?,;:\-—]$/.test(text.trim()); // Don't add space after punctuation
+
+        const needsLeadingSpace = node.previousSibling &&
+            node.previousSibling.nodeType === Node.ELEMENT_NODE &&
+            !text.startsWith(' ') &&
+            !/^[.!?,;:\-—)]/.test(text.trim()); // Don't add space before punctuation or closing paren
+
         // Create a document fragment to hold the new content
         const fragment = document.createDocumentFragment();
-        
+
         // Add leading space if needed
         if (needsLeadingSpace) {
             fragment.appendChild(document.createTextNode(' '));
         }
-        
+
         // Create placeholders for all parts (sentences and gaps)
         const sentencePlaceholders = sentences.map((sentence) => {
             const container = document.createElement('span');
@@ -796,68 +793,74 @@ async function translateNodes(matches) {
             container.textContent = sentence;
             container.setAttribute('data-translated-container', 'true');
             fragment.appendChild(container);
-            
+
             return { container, sentence };
         });
-        
+
         // Add trailing space if needed
         if (needsTrailingSpace) {
             fragment.appendChild(document.createTextNode(' '));
         }
-        
+
         // Replace only the specific text node, not the entire parent
         node.replaceWith(fragment);
-        
+
         // Process translations asynchronously
         sentencePlaceholders.forEach(async ({ container, sentence }) => {
+            const result = Math.random()
+            console.log(result + "," + storageInfo.volume)
+            if (result > (storageInfo.volume / 100)) {
+                console.log("random was called")
+                return;
+            }
             const trimmedSentence = sentence.trim();
-            
+
             if (!isValidSentence(trimmedSentence)) {
                 return;
             }
-            
+
             try {
                 const response = await chrome.runtime.sendMessage({
                     action: 'getDifficulty',
                     sentence: trimmedSentence.toLowerCase()
                 });
-    
+
                 if (!response.success) {
                     console.error(`Error analyzing text ${trimmedSentence}:`, response.error);
                     return;
                 }
-                
+
                 if (response.difficulty > storageInfo.level) {
                     return;
                 }
-                
+
                 // Translate the sentence
                 const result = await translateSentence(storageInfo.language, trimmedSentence);
                 const translatedText = result?.choices?.[0]?.message?.content?.trim() || trimmedSentence;
-                
+
                 // Preserve leading/trailing whitespace from original sentence
                 const leadingSpace = sentence.match(/^\s*/)[0];
                 const trailingSpace = sentence.match(/\s*$/)[0];
-                
+
                 // Replace placeholder content with translation
                 isProcessing = true;
                 container.textContent = "";
-                
+
                 // Add leading space if present
                 if (leadingSpace) {
                     container.appendChild(document.createTextNode(leadingSpace));
                 }
-                
+
                 injectTranslation(container, translatedText);
-                
+
                 // Add trailing space if present
                 if (trailingSpace) {
                     container.appendChild(document.createTextNode(trailingSpace));
                 }
-                
+
                 setTimeout(() => { isProcessing = false; }, 10);
                 console.log("Translated:", translatedText);
-                
+
             } catch (err) {
                 console.error("Error translating sentence:", trimmedSentence, err);
             }
@@ -878,22 +881,22 @@ const observer = new MutationObserver(mutations => {
     if (isProcessing || !storageInfo || !storageInfo.enabled) {
         return;
     }
-    
+
     for (const mutation of mutations) {
         if (mutation.type === "childList") {
             for (const node of mutation.addedNodes) {
                 // Skip if this is a node we created
-                if (node.nodeType === Node.ELEMENT_NODE && 
-                    (node.hasAttribute('data-translated-container') || 
-                     node.classList?.contains('translated-block') ||
-                     node.classList?.contains('translated-word') ||
-                     node.querySelector('[data-translated-container]') ||
-                     node.querySelector('.translated-block'))) {
+                if (node.nodeType === Node.ELEMENT_NODE &&
+                    (node.hasAttribute('data-translated-container') ||
+                        node.classList?.contains('translated-block') ||
+                        node.classList?.contains('translated-word') ||
+                        node.querySelector('[data-translated-container]') ||
+                        node.querySelector('.translated-block'))) {
                     continue;
                 }
-                
+
                 setTimeout(() => {
-                    if (node.nodeType === Node.ELEMENT_NODE || 
+                    if (node.nodeType === Node.ELEMENT_NODE ||
                         node.nodeType === Node.TEXT_NODE) {
                         grabNodesIn(node)
                             .then(result => {
@@ -905,7 +908,7 @@ const observer = new MutationObserver(mutations => {
         } else if (mutation.type === "characterData") {
             const parent = mutation.target.parentElement;
             // Don't re-process our own containers
-            if (parent && 
+            if (parent &&
                 !parent.hasAttribute('data-translated-container') &&
                 !parent.classList?.contains('translated-block') &&
                 !parent.classList?.contains('translated-word') &&
