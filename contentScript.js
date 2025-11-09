@@ -27,7 +27,6 @@ async function translateSentence(language, sentence) {
         }
 
         const data = await response.json();
-        console.log(data["choices"][0]["message"]["content"])
         return data;
     } catch (error) {
         console.error("Fetch error:", error);
@@ -179,7 +178,6 @@ async function showTranslationTooltip(element, translatedWord, originalWord, x, 
         try {
             const translations = JSON.parse(translationsData);
             englishTranslation = translations.join('<br>');
-            console.log("Using stored translations:", translations);
             
             // Display immediately with the translated word at the top (use original translatedWord, not cleaned)
             translationTooltip.innerHTML = `
@@ -196,10 +194,8 @@ async function showTranslationTooltip(element, translatedWord, originalWord, x, 
     } else if (originalWord) {
         // If we have the original English word stored, use it directly
         englishTranslation = originalWord;
-        console.log("Using stored original English:", englishTranslation);
     } else {
         // If no original word is stored, try to translate the translated word back to English
-        console.log("No stored original word, translating back to English:", translatedWord);
         const languageName = languageNameMap[storageInfo.language.toLowerCase()] || 'Russian';
         const cleanWord = translatedWord.replace(/[.,!?;:"""'']/g, '').trim();
         
@@ -331,20 +327,14 @@ function isValidSentence(sentence) {
     const words = trimmed.split(/\s+/).filter(word => word.length > 0);
     const hasMinWords = words.length >= 3;
 
-    console.log('Validating sentence:', {
-        sentence: trimmed,
-        startsWithCapital,
-        endsWithPunctuation,
-        wordCount: words.length,
-        hasMinWords,
-        isValid: startsWithCapital && endsWithPunctuation && hasMinWords
-    });
-
     return startsWithCapital && endsWithPunctuation && hasMinWords;
 }
 
 let storageInfo = null;
 let isProcessing = false; // Add flag to prevent re-processing during injection
+
+// Replace the injectTranslation function with this updated version:
+
 function injectTranslation(parentElement, translationData) {
   parentElement.textContent = "";
   
@@ -389,14 +379,17 @@ function injectTranslation(parentElement, translationData) {
       .toLowerCase()
       .replace(/['']/g, "'") // Normalize apostrophes to straight apostrophe
       .replace(/[.,!?;:"""—–\-()]/g, '') // Remove punctuation including em/en dashes
+      .replace(/\s+/g, '') // Remove all whitespace for comparison
       .trim();
   }
   
   // Helper function to check if a word is meaningful (not just punctuation or URL fragments)
   function isMeaningfulWord(word) {
     const normalized = normalizeForComparison(word);
-    // Must have at least one letter (supports various alphabets)
-    return /[a-zA-Z\u00C0-\u024F\u0400-\u04FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF]/.test(normalized);
+    // Must have at least one letter/character from any script
+    // This uses Unicode property escapes to match any letter from any language
+    // Also checks for digits to exclude pure punctuation/symbols
+    return /\p{L}/u.test(normalized) || /\d/.test(normalized);
   }
   
   // Filter out non-meaningful definitions (like standalone punctuation, URL fragments)
@@ -405,9 +398,7 @@ function injectTranslation(parentElement, translationData) {
   });
   
   // Sort by length (longest first) to match multi-word phrases before individual words
-    const sortedDefinitions = [...filteredDefinitions].sort((a, b) => b.word.length - a.word.length);
-    
-    
+  const sortedDefinitions = [...filteredDefinitions].sort((a, b) => b.word.length - a.word.length);
   
   const translatedBlock = document.createElement('span');
   translatedBlock.className = 'translated-block';
@@ -506,7 +497,6 @@ function injectTranslation(parentElement, translationData) {
       phraseSpan.addEventListener('mouseenter', function(e) {
         const translatedWord = this.getAttribute('data-translated-word') || this.textContent.trim();
         const originalWord = this.getAttribute('data-original-word');
-        console.log("Hovering over word:", translatedWord, "Original:", originalWord);
         showTranslationTooltip(this, translatedWord, originalWord, e.clientX, e.clientY);
         
         mouseMoveHandler = function(ev) {
@@ -560,6 +550,7 @@ function injectTranslation(parentElement, translationData) {
   
   parentElement.appendChild(translatedBlock);
 }
+
 
 async function translateNodes(matches) {
     for (const { node, parent, text } of matches) {
@@ -615,9 +606,7 @@ async function translateNodes(matches) {
         // Process translations asynchronously
         sentencePlaceholders.forEach(async ({ container, sentence }) => {
             const result = Math.random()
-            console.log(result + "," + storageInfo.volume)
             if (result > (storageInfo.volume / 100)) {
-                console.log("random was called")
                 return;
             }
             const trimmedSentence = sentence.trim();
@@ -666,8 +655,6 @@ async function translateNodes(matches) {
                 }
 
                 setTimeout(() => { isProcessing = false; }, 10);
-                console.log("Translated:", translatedText);
-
             } catch (err) {
                 console.error("Error translating sentence:", trimmedSentence, err);
             }
