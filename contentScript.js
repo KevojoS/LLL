@@ -1,37 +1,27 @@
-API_KEY = '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'
-
 async function translateSentence(language, sentence) {
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-        Authorization: `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-        model: 'anthropic/claude-sonnet-4.5',
-        messages: [
-        {
-            role: 'user',
-            content: `Your response must be in JSON format with key "translated_sentence" where the translated sentence will be held. There must also be a key "word_definitions", which is an array of objects. The objects must have field "word", and an array of english definitions for the non-english translated word with field "translations." Make sure to include EVERY SINGLE WORD AS IS, STRICTLY UNMODIFIED (ex. l'extrémité is not reduced to extrémité), including connector words. Translate the following sentence into ${language}: ${sentence}`
-        },
-        ],
-        provider: {
-            sort: 'latency'
-        }
-    }),
+    console.log('Sending TRANSLATE message:', { language, sentence });
+    
+    const response = await chrome.runtime.sendMessage({
+      type: 'TRANSLATE',
+      language: language,
+      sentence: sentence
     });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error("Fetch error:", error);
-        throw error; // Re-throw so caller knows it failed
+    
+    console.log('Received response:', response);
+    console.log('Response type:', typeof response);
+    console.log('Response.data:', response.data);
+    console.log('Response.data type:', typeof response.data);
+    
+    if (response.error) {
+      throw new Error(response.error);
     }
+    
+    return response.data;
+  } catch (error) {
+    console.error("Translation error:", error);
+    throw error;
+  }
 }
 
 async function getUserSettings() {
@@ -341,17 +331,6 @@ function injectTranslation(parentElement, translationData) {
   // Parse the translation data if it's a string
   let data;
   
-  // Handle different input formats
-  if (typeof translationData === 'object' && translationData.choices) {
-    // This is the full API response object from translateSentence
-    const content = translationData.choices[0]?.message?.content;
-    if (!content) {
-      console.error("No content in API response");
-      return;
-    }
-    translationData = content;
-  }
-  
   if (typeof translationData === 'string') {
     // Remove markdown code block markers if present
     let cleanData = translationData.trim();
@@ -366,8 +345,18 @@ function injectTranslation(parentElement, translationData) {
       // Fallback: treat as plain translated sentence
       data = { translated_sentence: translationData, word_definitions: [] };
     }
-  } else {
+  } else if (typeof translationData === 'object') {
+    // Already parsed object from background script
     data = translationData;
+  } else {
+    console.error("Unexpected translationData type:", typeof translationData, translationData);
+    return;
+  }
+  
+  // Validate the data structure
+  if (!data || !data.translated_sentence) {
+    console.error("Invalid translation data structure:", data);
+    return;
   }
   
   const translatedSentence = data.translated_sentence;
@@ -551,7 +540,6 @@ function injectTranslation(parentElement, translationData) {
   parentElement.appendChild(translatedBlock);
 }
 
-
 async function translateNodes(matches) {
     for (const { node, parent, text } of matches) {
 
@@ -632,7 +620,7 @@ async function translateNodes(matches) {
 
                 // Translate the sentence
                 const result = await translateSentence(storageInfo.language, trimmedSentence);
-                const translatedText = result?.choices?.[0]?.message?.content?.trim() || trimmedSentence;
+                const translatedText = result;
 
                 // Preserve leading/trailing whitespace from original sentence
                 const leadingSpace = sentence.match(/^\s*/)[0];
