@@ -117,12 +117,17 @@ body {
 .flame-icon {
     color: var(--accent-orange);
     margin-right: 5px;
-    font-size: 16px;
+}
+.flame-icon img{
+    width: 30px;
+    height:auto;
 }
 
 .streak-count {
     font-weight: 700;
     color: var(--dark-gray);
+    display:flex;
+    justify-content: center;
 }
 
 /* Language dropdown */
