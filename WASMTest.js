@@ -114,6 +114,102 @@ document.addEventListener('dblclick', async (e) => {
   // await analyzeSelection();
 });
 
+function isVisible(element) {
+    if (!element || !element.isConnected || element.nodeType !== Node.ELEMENT_NODE) return false;
+
+    const style = window.getComputedStyle(element);
+
+    if (
+        style.display === "none" ||
+        style.visibility === "hidden" ||
+        style.opacity === "0" ||
+        style.clipPath === "inset(100%)" ||
+        style.position === "absolute" && style.left === "-9999px"
+    ) {
+        return false;
+    }
+
+    const rect = element.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return false;
+
+    return true;
+}
+
+const TO_ANALYZE_TEXT_CONTAINERS = new Set([
+    "P",
+    "SPAN",
+    "DIV",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6",
+    "LI",
+    "A",
+    "BUTTON",
+    "LABEL",
+    "STRONG",
+    "EM",
+    "B",
+    "I",
+    "TD",
+    "TH"
+]);
+
+function shouldAnalyze(text, parent) {
+    if (text === null || parent === null) return false;
+    return (
+        text.trim().length > 0 &&
+        TO_ANALYZE_TEXT_CONTAINERS.has(parent.tagName) &&
+        isVisible(parent)
+    )
+}
+
+function isValidSentence(sentence) {
+    const trimmed = sentence.trim();
+    if (trimmed.length === 0) return false;
+
+    // Check if starts with capital letter
+    const startsWithCapital = /^[A-Z]/.test(trimmed);
+
+    // Check if ends with period, exclamation mark, or question mark
+    const endsWithPunctuation = /[.!?]$/.test(trimmed);
+
+    // Check if has at least 3 words
+    const words = trimmed.split(/\s+/).filter(word => word.length > 0);
+    const hasMinWords = words.length >= 1;
+
+    console.log('Validating sentence:', {
+        sentence: trimmed,
+        startsWithCapital,
+        endsWithPunctuation,
+        wordCount: words.length,
+        hasMinWords,
+        isValid: startsWithCapital && endsWithPunctuation && hasMinWords
+    });
+
+    return startsWithCapital && endsWithPunctuation && hasMinWords;
+}
+
+async function grabNodesIn(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    const matches = [];
+
+    while (walker.nextNode()) {
+        const node = walker.currentNode;
+        const parent = node.parentElement;
+        if (!parent || !shouldAnalyze(node.textContent, parent)) continue;
+
+        const text = node.textContent?.trim();
+        if (!text) continue;
+
+        matches.push({ node, parent, text });
+    }
+
+    return matches;
+}
+
 // Add a context menu option (if you want)
 // This requires adding contextMenus permission to manifest.json
 
