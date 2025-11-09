@@ -333,7 +333,6 @@ body {
   bottom: 0;
   background-color: #ccc;
   -webkit-transition: .4s;
-  transition: .4s;
 }
 .switchParent{
     width:100%;
