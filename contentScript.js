@@ -62,7 +62,7 @@ class RequestQueue {
 
 const requestQueue = new RequestQueue(600); // 600ms delay between requests
 
-async function translateSentence(language, sentence) {
+async function translateSentence(language, text) {
     try {
         // Map language names to language codes for MyMemory
         const languageMap = {
@@ -76,10 +76,11 @@ async function translateSentence(language, sentence) {
             'chinese': 'zh'
         };
 
-        const targetLang = languageMap[language.toLowerCase()] || 'ru';
+        const sourceLang = languageMap[language.toLowerCase()] || 'ru';
+        const email = "kaunghtetsan6574@gmail.com"
 
         const response = await fetch(
-            `https://api.mymemory.translated.net/get?q=${encodeURIComponent(sentence)}&langpair=en|${targetLang}`
+            `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang}|en&de=${encodeURIComponent(email)}`
         );
 
         if (!response.ok) {
