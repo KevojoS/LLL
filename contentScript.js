@@ -1,4 +1,4 @@
-API_KEY = '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'
+API_KEY = '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'
 
 async function translateSentence(language, sentence) {
   try {
