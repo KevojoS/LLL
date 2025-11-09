@@ -135,38 +135,27 @@ async function toEnglishSentence(language, sentence) {
     };
 }
 
-const languageNameMap = {
-    'russian': 'Russian',
-    'french': 'French',
-    'spanish': 'Spanish',
-    'german': 'German',
-    'italian': 'Italian',
-    'japanese': 'Japanese',
-    'korean': 'Korean',
-    'chinese': 'Chinese'
-};
-
 async function translateSentence(language, sentence) {
-    try {
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${API_KEY}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: 'anthropic/claude-sonnet-4.5',
-                messages: [
-                    {
-                        role: 'user',
-                        content: `Translate the following sentence with no explanation or additional info into ${language}: ${sentence}`
-                    },
-                ],
-                provider: {
-                    sort: 'latency'
-                }
-            }),
-        });
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+        Authorization: `Bearer ${API_KEY}`,
+        'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+        model: 'anthropic/claude-sonnet-4.5',
+        messages: [
+        {
+            role: 'user',
+            content: `Your response must be in JSON format with key "translated_sentence" where the translated sentence will be held. There must also be a key "word_definitions", which is an array of objects. The objects must have field "word", and an array of english definitions for the non-english translated word with field "translations." Make sure to include EVERY SINGLE WORD AS IS, STRICTLY UNMODIFIED (ex. l'extrémité is not reduced to extrémité), including connector words. Translate the following sentence into ${language}: ${sentence}`
+        },
+        ],
+        provider: {
+            sort: 'latency'
+        }
+    }),
+    });
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -181,130 +170,6 @@ async function translateSentence(language, sentence) {
     }
 }
 
-// New function to translate back to English using MyMemory API
-async function translateToEnglish(text, sourceLanguage) {
-    const cacheKey = `en:${text}`;
-    if (translationCache.has(cacheKey)) {
-        console.log("Using cached translation:", translationCache.get(cacheKey));
-        return translationCache.get(cacheKey);
-    }
-
-    // If the text is already in English or very short, return as-is
-    if (text.length < 3 || /^[a-zA-Z\s.,!?;:'"-]+$/.test(text)) {
-        console.log("Text appears to be English, returning as-is:", text);
-        translationCache.set(cacheKey, text);
-        return text;
-    }
-
-    try {
-        console.log("Translating to English:", text, "from", sourceLanguage);
-
-        const languageMap = {
-            'russian': 'ru',
-            'french': 'fr',
-            'spanish': 'es',
-            'german': 'de',
-            'italian': 'it',
-            'japanese': 'ja',
-            'korean': 'ko',
-            'chinese': 'zh'
-        };
-
-        const sourceLang = languageMap[sourceLanguage.toLowerCase()] || 'ru';
-
-        const response = await fetch(
-            `https://simplytranslate.org/api/translate?text=${encodeURIComponent(text)}&from=${sourceLang}&to=en&engine=google`
-        );
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const translation = data.translated_text || text;
-
-        translationCache.set(cacheKey, translation);
-        console.log("English translation:", translation);
-
-        return translation;
-    } catch (error) {
-        console.error("Translation error:", error);
-        // Final fallback: Return the original text with a marker
-        const fallbackTranslation = `[EN] ${text}`;
-        translationCache.set(cacheKey, fallbackTranslation);
-        return fallbackTranslation;
-    }
-}
-
-function createWordMapping(originalSentence, translatedSentence) {
-    const cleanPunctuation = (text) => text.replace(/[.,!?;:"""'']/g, '').trim();
-
-    const originalWords = cleanPunctuation(originalSentence).split(/\s+/).filter(w => w.trim());
-    const translatedWords = cleanPunctuation(translatedSentence).split(/\s+/).filter(w => w.trim());
-
-    const mapping = new Map();
-
-    console.log("Creating word mapping:");
-    console.log("Original words:", originalWords);
-    console.log("Translated words:", translatedWords);
-
-    // Try to map words based on position
-    const minLength = Math.min(originalWords.length, translatedWords.length);
-    for (let i = 0; i < minLength; i++) {
-        const translatedKey = translatedWords[i].toLowerCase();
-        const originalValue = originalWords[i];
-        mapping.set(translatedKey, originalValue);
-        console.log(`Mapping: ${translatedKey} -> ${originalValue}`);
-    }
-
-    // Also map common variations
-    if (mapping.size === 0) {
-        console.log("No direct mapping found, trying to map common words");
-        // Add some common word mappings as fallback
-        const commonMappings = {
-            'the': 'the', 'and': 'and', 'is': 'is', 'in': 'in', 'to': 'to',
-            'of': 'of', 'a': 'a', 'that': 'that', 'it': 'it', 'with': 'with',
-            'for': 'for', 'as': 'as', 'was': 'was', 'on': 'on', 'are': 'are'
-        };
-
-        for (const [enWord, enValue] of Object.entries(commonMappings)) {
-            mapping.set(enWord, enValue);
-        }
-    }
-
-    return mapping;
-}
-
-function wrapTranslatedWords(text, wordMapping) {
-    const fragment = document.createDocumentFragment();
-    const parts = text.split(/(\s+)/);
-
-    parts.forEach(part => {
-        if (part.trim() === '') {
-            fragment.appendChild(document.createTextNode(part));
-        } else {
-            const wordSpan = document.createElement('span');
-            wordSpan.className = 'translated-word';
-            wordSpan.textContent = part;
-            wordSpan.setAttribute('data-translated-word', part);
-
-            const cleanWord = part.replace(/[.,!?;:"""'']/g, '').toLowerCase();
-            if (wordMapping && wordMapping.has(cleanWord)) {
-                const originalWord = wordMapping.get(cleanWord);
-                wordSpan.setAttribute('data-original-word', originalWord);
-                console.log(`Setting original word for "${part}": ${originalWord}`);
-            } else {
-                console.log(`No original word mapping found for: ${part}`);
-            }
-
-            wordSpan.setAttribute('data-no-translate', 'true');
-            fragment.appendChild(wordSpan);
-        }
-    });
-
-    return fragment;
-}
-
 async function getUserSettings() {
     const data = await chrome.storage.sync.get(['difficultyLevel', 'selectedLanguage', 'volumeLevel', 'extensionEnabled']);
     return {
@@ -317,19 +182,8 @@ async function getUserSettings() {
 
 // Listen for changes to difficulty
 chrome.storage.onChanged.addListener((changes, namespace) => {
-    if (changes.difficultyLevel) {
-        main();
-    }
-    if (changes.selectedLanguage) {
-        main();
-    }
-    if (changes.volumeLevel) {
-        main();
-    }
-    if (changes.enabled) {
-        main();
-    }
-});
+    main();
+ });
 
 const style = document.createElement('style');
 style.textContent = `
@@ -404,48 +258,6 @@ document.body.appendChild(translationTooltip);
 let currentHoveredElement = null;
 let tooltipTimeout = null;
 
-async function showTranslationTooltip(element, translatedWord, originalWord, x, y) {
-    if (tooltipTimeout) {
-        clearTimeout(tooltipTimeout);
-    }
-
-    currentHoveredElement = element;
-
-    let englishTranslation;
-
-    // If we have the original English word stored, use it directly
-    if (originalWord) {
-        englishTranslation = originalWord;
-        console.log("Using stored original English:", englishTranslation);
-    } else {
-        // If no original word is stored, try to translate the translated word back to English
-        console.log("No stored original word, translating back to English:", translatedWord);
-        const languageName = languageNameMap[storageInfo.language.toLowerCase()] || 'Russian';
-        const cleanWord = translatedWord.replace(/[.,!?;:"""'']/g, '').trim();
-
-        // Show loading tooltip immediately
-        translationTooltip.innerHTML = `
-            <div class="translation-tooltip-header">Translating...</div>
-            <div class="translation-tooltip-text">${cleanWord}</div>
-        `;
-        positionTooltip(x, y);
-        translationTooltip.classList.add('visible');
-
-        // Then get the actual translation
-        englishTranslation = await translateToEnglish(cleanWord, languageName);
-    }
-
-    // Only update if we're still hovering over the same element
-    if (currentHoveredElement === element) {
-        translationTooltip.innerHTML = `
-            <div class="translation-tooltip-header">English</div>
-            <div class="translation-tooltip-text">${englishTranslation}</div>
-        `;
-        positionTooltip(x, y);
-        translationTooltip.classList.add('visible');
-    }
-}
-
 function positionTooltip(x, y) {
     let offsetX = 12;
     let offsetY = 16;
@@ -485,66 +297,69 @@ function hideTranslationTooltip() {
     translationTooltip.classList.remove('visible');
 }
 
-function injectTranslation(parentElement, translatedSentence) {
-    parentElement.textContent = "";
+async function showTranslationTooltip(element, translatedWord, originalWord, x, y) {
+    if (tooltipTimeout) {
+        clearTimeout(tooltipTimeout);
+    }
 
-    const words = translatedSentence.split(' ');
+    currentHoveredElement = element;
 
-    const translatedBlock = document.createElement('span');
-    translatedBlock.className = 'translated-block';
-    translatedBlock.style.cssText = `
-    background: rgba(119, 255, 124, 0.298);
-    border-radius: 4px;
-    padding: 0 2px;
-    font-size: inherit;
-    font-family: inherit;
-    display: inline;
-  `;
+    let englishTranslation;
 
-    words.forEach((word, index) => {
-        const wordSpan = document.createElement('span');
-        wordSpan.className = 'translated-word';
-        wordSpan.textContent = word;
-        wordSpan.setAttribute('data-translated-word', word);
-        wordSpan.style.cssText = `
-      pointer-events: auto;
-      position: relative;
-      cursor: pointer;
-    `;
-
-        let mouseMoveHandler = null;
-
-        // Enhanced hover listeners with English translation
-        wordSpan.addEventListener('mouseenter', function (e) {
-            const translatedWord = this.getAttribute('data-translated-word') || this.textContent.trim();
-            const originalWord = this.getAttribute('data-original-word');
-            console.log("Hovering over word:", translatedWord, "Original:", originalWord);
-            showTranslationTooltip(this, translatedWord, originalWord, e.clientX, e.clientY);
-
-            mouseMoveHandler = function (ev) {
-                positionTooltip(ev.clientX, ev.clientY);
-            };
-            wordSpan.addEventListener('mousemove', mouseMoveHandler);
-        });
-
-        wordSpan.addEventListener('mouseleave', function () {
-            hideTranslationTooltip();
-            if (mouseMoveHandler) {
-                wordSpan.removeEventListener('mousemove', mouseMoveHandler);
-                mouseMoveHandler = null;
-            }
-        });
-
-        translatedBlock.appendChild(wordSpan);
-
-        if (index < words.length - 1) {
-            translatedBlock.appendChild(document.createTextNode(' '));
+    // Check if we have translations data stored
+    const translationsData = element.getAttribute('data-translations');
+    
+    if (translationsData) {
+        // Use the stored translations
+        try {
+            const translations = JSON.parse(translationsData);
+            englishTranslation = translations.join('<br>');
+            console.log("Using stored translations:", translations);
+            
+            // Display immediately with the translated word at the top (use original translatedWord, not cleaned)
+            translationTooltip.innerHTML = `
+                <div class="translation-tooltip-header">${translatedWord}</div>
+                <div class="translation-tooltip-text">${englishTranslation}</div>
+            `;
+            positionTooltip(x, y);
+            translationTooltip.classList.add('visible');
+            return;
+        } catch (e) {
+            console.error("Error parsing translations data:", e);
+            englishTranslation = "Translation unavailable";
         }
-    });
+    } else if (originalWord) {
+        // If we have the original English word stored, use it directly
+        englishTranslation = originalWord;
+        console.log("Using stored original English:", englishTranslation);
+    } else {
+        // If no original word is stored, try to translate the translated word back to English
+        console.log("No stored original word, translating back to English:", translatedWord);
+        const languageName = languageNameMap[storageInfo.language.toLowerCase()] || 'Russian';
+        const cleanWord = translatedWord.replace(/[.,!?;:"""'']/g, '').trim();
+        
+        // Show loading tooltip immediately with the translated word (use original, not cleaned)
+        translationTooltip.innerHTML = `
+            <div class="translation-tooltip-header">${translatedWord}</div>
+            <div class="translation-tooltip-text">Translating...</div>
+        `;
+        positionTooltip(x, y);
+        translationTooltip.classList.add('visible');
+        
+        // Then get the actual translation
+        englishTranslation = await translateSentence("english", cleanWord);
+    }
 
-    parentElement.appendChild(translatedBlock);
+    // Only update if we're still hovering over the same element (use original translatedWord)
+    if (currentHoveredElement === element) {
+        translationTooltip.innerHTML = `
+            <div class="translation-tooltip-header">${translatedWord}</div>
+            <div class="translation-tooltip-text">${englishTranslation}</div>
+        `;
+        positionTooltip(x, y);
+        translationTooltip.classList.add('visible');
+    }
 }
-
 
 function isVisible(element) {
     if (!element || !element.isConnected || element.nodeType !== Node.ELEMENT_NODE) return false;
@@ -663,6 +478,281 @@ function isValidSentence(sentence) {
 
 let storageInfo = null;
 let isProcessing = false; // Add flag to prevent re-processing during injection
+
+async function showTranslationTooltip(element, translatedWord, originalWord, x, y) {
+    if (tooltipTimeout) {
+        clearTimeout(tooltipTimeout);
+    }
+
+    currentHoveredElement = element;
+
+    let englishTranslation;
+
+    // Check if we have translations data stored
+    const translationsData = element.getAttribute('data-translations');
+    
+    if (translationsData) {
+        // Use the stored translations
+        try {
+            const translations = JSON.parse(translationsData);
+            englishTranslation = translations.join('<br>');
+            console.log("Using stored translations:", translations);
+            
+            // Display immediately with the translated word at the top (use original translatedWord, not cleaned)
+            translationTooltip.innerHTML = `
+                <div class="translation-tooltip-header">${translatedWord}</div>
+                <div class="translation-tooltip-text">${englishTranslation}</div>
+            `;
+            positionTooltip(x, y);
+            translationTooltip.classList.add('visible');
+            return;
+        } catch (e) {
+            console.error("Error parsing translations data:", e);
+            englishTranslation = "Translation unavailable";
+        }
+    } else if (originalWord) {
+        // If we have the original English word stored, use it directly
+        englishTranslation = originalWord;
+        console.log("Using stored original English:", englishTranslation);
+    } else {
+        // If no original word is stored, try to translate the translated word back to English
+        console.log("No stored original word, translating back to English:", translatedWord);
+        const languageName = languageNameMap[storageInfo.language.toLowerCase()] || 'Russian';
+        const cleanWord = translatedWord.replace(/[.,!?;:"""'']/g, '').trim();
+        
+        // Show loading tooltip immediately with the translated word (use original, not cleaned)
+        translationTooltip.innerHTML = `
+            <div class="translation-tooltip-header">${translatedWord}</div>
+            <div class="translation-tooltip-text">Translating...</div>
+        `;
+        positionTooltip(x, y);
+        translationTooltip.classList.add('visible');
+        
+        // Then get the actual translation
+        englishTranslation = await translateSentence("english", cleanWord);
+    }
+
+    // Only update if we're still hovering over the same element (use original translatedWord)
+    if (currentHoveredElement === element) {
+        translationTooltip.innerHTML = `
+            <div class="translation-tooltip-header">${translatedWord}</div>
+            <div class="translation-tooltip-text">${englishTranslation}</div>
+        `;
+        positionTooltip(x, y);
+        translationTooltip.classList.add('visible');
+    }
+}
+
+function injectTranslation(parentElement, translationData) {
+  parentElement.textContent = "";
+  
+  // Parse the translation data if it's a string
+  let data;
+  
+  // Handle different input formats
+  if (typeof translationData === 'object' && translationData.choices) {
+    // This is the full API response object from translateSentence
+    const content = translationData.choices[0]?.message?.content;
+    if (!content) {
+      console.error("No content in API response");
+      return;
+    }
+    translationData = content;
+  }
+  
+  if (typeof translationData === 'string') {
+    // Remove markdown code block markers if present
+    let cleanData = translationData.trim();
+    
+    // Remove ```json or ``` at the start and ``` at the end
+    cleanData = cleanData.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '');
+    
+    try {
+      data = JSON.parse(cleanData);
+    } catch (e) {
+      console.error("Error parsing translation data:", e, "Raw data:", translationData);
+      // Fallback: treat as plain translated sentence
+      data = { translated_sentence: translationData, word_definitions: [] };
+    }
+  } else {
+    data = translationData;
+  }
+  
+  const translatedSentence = data.translated_sentence;
+  const wordDefinitions = data.word_definitions || [];
+  
+  // Helper function to normalize text for comparison
+  function normalizeForComparison(text) {
+    return text
+      .toLowerCase()
+      .replace(/['']/g, "'") // Normalize apostrophes to straight apostrophe
+      .replace(/[.,!?;:"""—–\-()]/g, '') // Remove punctuation including em/en dashes
+      .trim();
+  }
+  
+  // Helper function to check if a word is meaningful (not just punctuation or URL fragments)
+  function isMeaningfulWord(word) {
+    const normalized = normalizeForComparison(word);
+    // Must have at least one letter (supports various alphabets)
+    return /[a-zA-Z\u00C0-\u024F\u0400-\u04FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF]/.test(normalized);
+  }
+  
+  // Filter out non-meaningful definitions (like standalone punctuation, URL fragments)
+  const filteredDefinitions = wordDefinitions.filter(def => {
+    return isMeaningfulWord(def.word);
+  });
+  
+  // Sort by length (longest first) to match multi-word phrases before individual words
+  const sortedDefinitions = [...filteredDefinitions].sort((a, b) => b.word.length - a.word.length);
+  
+  const translatedBlock = document.createElement('span');
+  translatedBlock.className = 'translated-block';
+  translatedBlock.style.cssText = `
+    background: rgba(119, 255, 124, 0.298);
+    border-radius: 4px;
+    padding: 0 2px;
+    font-size: inherit;
+    font-family: inherit;
+    display: inline;
+  `;
+  
+  // Check if this is a space-separated language or not (like Chinese/Japanese)
+  const hasSpaces = translatedSentence.includes(' ');
+  
+  let position = 0;
+  
+  while (position < translatedSentence.length) {
+    let matched = false;
+    let matchedPhrase = '';
+    let matchedTranslations = null;
+    let matchLength = 0;
+    let actualMatchText = '';
+    
+    // Skip leading punctuation/whitespace for matching
+    let searchStart = position;
+    while (searchStart < translatedSentence.length && 
+           /[\s.,!?;:"""''—–\-()]/.test(translatedSentence[searchStart])) {
+      searchStart++;
+    }
+    
+    // If we only found punctuation/spaces, handle them separately
+    if (searchStart > position) {
+      const punctText = translatedSentence.substring(position, searchStart);
+      const wordSpan = document.createElement('span');
+      wordSpan.className = 'translated-word';
+      wordSpan.textContent = punctText;
+      wordSpan.style.cssText = `display: inline;`;
+      translatedBlock.appendChild(wordSpan);
+      position = searchStart;
+      continue;
+    }
+    
+    // Try to match phrases from longest to shortest
+    for (const def of sortedDefinitions) {
+      const defWord = def.word;
+      
+      // Try to find this definition word starting from current position
+      // Account for possible trailing punctuation in the sentence
+      let testLength = defWord.length;
+      let extraChars = 0;
+      
+      // Extend to capture trailing punctuation
+      while (searchStart + testLength + extraChars < translatedSentence.length &&
+             /[.,!?;:"""''—–\-()]/.test(translatedSentence[searchStart + testLength + extraChars])) {
+        extraChars++;
+      }
+      
+      const potentialMatch = translatedSentence.substring(searchStart, searchStart + testLength + extraChars);
+      
+      // Normalize both for comparison
+      const normalizedPotential = normalizeForComparison(potentialMatch);
+      const normalizedDef = normalizeForComparison(defWord);
+      
+      if (normalizedPotential === normalizedDef) {
+        matched = true;
+        matchedPhrase = defWord;
+        matchedTranslations = def.translations;
+        actualMatchText = potentialMatch;
+        matchLength = testLength + extraChars;
+        break;
+      }
+    }
+    
+    if (matched) {
+      // Create a span for the matched phrase
+      const phraseSpan = document.createElement('span');
+      phraseSpan.className = 'translated-word';
+      phraseSpan.textContent = actualMatchText;
+      
+      // Store the matched phrase and its translations
+      phraseSpan.setAttribute('data-translated-word', matchedPhrase);
+      phraseSpan.setAttribute('data-translations', JSON.stringify(matchedTranslations));
+      
+      phraseSpan.style.cssText = `
+        pointer-events: auto;
+        position: relative;
+        cursor: pointer;
+      `;
+      
+      let mouseMoveHandler = null;
+      
+      phraseSpan.addEventListener('mouseenter', function(e) {
+        const translatedWord = this.getAttribute('data-translated-word') || this.textContent.trim();
+        const originalWord = this.getAttribute('data-original-word');
+        console.log("Hovering over word:", translatedWord, "Original:", originalWord);
+        showTranslationTooltip(this, translatedWord, originalWord, e.clientX, e.clientY);
+        
+        mouseMoveHandler = function(ev) {
+          positionTooltip(ev.clientX, ev.clientY);
+        };
+        phraseSpan.addEventListener('mousemove', mouseMoveHandler);
+      });
+      
+      phraseSpan.addEventListener('mouseleave', function() {
+        hideTranslationTooltip();
+        if (mouseMoveHandler) {
+          phraseSpan.removeEventListener('mousemove', mouseMoveHandler);
+          mouseMoveHandler = null;
+        }
+      });
+      
+      translatedBlock.appendChild(phraseSpan);
+      position = searchStart + matchLength;
+    } else {
+      // No match found - find next word/character boundary
+      let endPos;
+      if (hasSpaces) {
+        // For space-separated languages, find the next space or punctuation
+        endPos = searchStart + 1;
+        while (endPos < translatedSentence.length && 
+               translatedSentence[endPos] !== ' ' &&
+               !/[.,!?;:"""''—–\-()]/.test(translatedSentence[endPos])) {
+          endPos++;
+        }
+      } else {
+        // For non-space languages (Chinese, Japanese), just take one character
+        endPos = searchStart + 1;
+      }
+      
+      const unmatchedText = translatedSentence.substring(searchStart, endPos);
+      const wordSpan = document.createElement('span');
+      wordSpan.className = 'translated-word';
+      wordSpan.textContent = unmatchedText;
+      wordSpan.style.cssText = `display: inline;`;
+      
+      translatedBlock.appendChild(wordSpan);
+      position = endPos;
+    }
+    
+    // Add space if we're at a space character in space-separated languages
+    if (hasSpaces && position < translatedSentence.length && translatedSentence[position] === ' ') {
+      translatedBlock.appendChild(document.createTextNode(' '));
+      position++;
+    }
+  }
+  
+  parentElement.appendChild(translatedBlock);
+}
 
 async function translateNodes(matches) {
     for (const { node, parent, text } of matches) {
