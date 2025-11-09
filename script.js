@@ -3,7 +3,10 @@ const difficultySlider = document.getElementById('difficultySlider');
 const difficultyValue = document.getElementById('difficultyValue');
 const languageSelect = document.getElementById('languageSelect');
 const difficultyIndicators = document.getElementById('difficultyIndicators').querySelectorAll('.level-indicator');
-
+const languageContainer = document.querySelector('.language-selector');
+const levelSliderContainer = document.getElementById('difficultySliderContainer');
+const volumeSliderContainer = document.getElementById('volumeSliderContainer');
+const containers = [languageContainer, levelSliderContainer, volumeSliderContainer]
 // CEFR levels
 const cefrLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
@@ -88,6 +91,16 @@ const extensionToggle = document.getElementById('extensionToggle');
 extensionToggle.addEventListener('input', () => {
     const enabled = extensionToggle.checked;
     chrome.storage.sync.set({ extensionEnabled: enabled });
+    if (enabled) {
+        containers.forEach(container => {
+            container.style.display = "block";
+        })
+    }
+    else {
+        containers.forEach(container => {
+            container.style.display = "none";
+        })
+    }
 
     // Optionally reload page when turning on/off
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -122,6 +135,16 @@ chrome.storage.sync.get(['difficultyLevel', 'volumeLevel', 'selectedLanguage', '
     // Set toggle state
     if (data.extensionEnabled !== undefined) {
         document.getElementById('extensionToggle').checked = data.extensionEnabled;
+        if (data.extensionEnabled) {
+            containers.forEach(container => {
+                container.style.display = "block";
+            })
+        }
+        else {
+            containers.forEach(container => {
+                container.style.display = "none";
+            })
+        }
     }
 
     // Just update the display, don't reload
@@ -136,9 +159,9 @@ chrome.storage.sync.get(['difficultyLevel', 'volumeLevel', 'selectedLanguage', '
             indicator.classList.remove('active-level');
         }
     });
-     const volume = parseInt(volumeSlider.value);
+    const volume = parseInt(volumeSlider.value);
     volumeValue.textContent = `${volume}%`;
-    
+
     const percentages = [0, 25, 50, 75, 100];
     const closest = percentages.reduce((prev, curr) => {
         return (Math.abs(curr - volume) < Math.abs(prev - volume) ? curr : prev);
