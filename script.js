@@ -7,8 +7,10 @@ const difficultyIndicators = document.getElementById('difficultyIndicators').que
 // CEFR levels
 const cefrLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
+let difficultyTracker = 0;
+difficultyTracker = difficultySlider.value
 function updateDifficultyDisplay() {
-    const levelIndex = parseInt(difficultySlider.value) - 1;
+    const levelIndex = parseInt(difficultySlider.value);
     const language = languageSelect.options[languageSelect.selectedIndex].text;
     difficultyValue.textContent = `${language} - ${cefrLevels[levelIndex]}`;
     // Update active level indicator
@@ -19,10 +21,23 @@ function updateDifficultyDisplay() {
             indicator.classList.remove('active-level');
         }
     });
-
-    chrome.storage.sync.set({
-        difficultyLevel: levelIndex,
-        selectedLanguage: language
+    chrome.storage.sync.get('difficultyLevel', (data) => {
+        const previousLevel = data.difficultyLevel;
+        chrome.storage.sync.set({
+            difficultyLevel: levelIndex,
+            selectedLanguage: language
+        });
+        if (previousLevel !== undefined && levelIndex < previousLevel) {
+            console.log('Reloading the page because easier level selected');
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (tabs[0]) {
+                    chrome.scripting.executeScript({
+                        target: { tabId: tabs[0].id },
+                        func: () => location.reload()
+                    });
+                }
+            });
+        }
     });
 }
 
@@ -37,13 +52,13 @@ const volumeIndicators = document.getElementById('volumeIndicators').querySelect
 function updateVolumeDisplay() {
     const volume = parseInt(volumeSlider.value);
     volumeValue.textContent = `${volume}%`;
-    
+
     // Update active level indicator based on closest percentage
     const percentages = [0, 25, 50, 75, 100];
     const closest = percentages.reduce((prev, curr) => {
         return (Math.abs(curr - volume) < Math.abs(prev - volume) ? curr : prev);
     });
-    
+
     volumeIndicators.forEach((indicator, index) => {
         if (percentages[index] === closest) {
             indicator.classList.add('active-level');
@@ -84,7 +99,7 @@ const flashcard = document.getElementById('flashcard');
 const flashcardContent = document.getElementById('flashcardContent');
 let isFlipped = false;
 
-flashcard.addEventListener('click', function() {
+flashcard.addEventListener('click', function () {
     isFlipped = !isFlipped;
     if (isFlipped) {
         flashcardContent.textContent = 'Hello';
@@ -97,7 +112,7 @@ flashcard.addEventListener('click', function() {
 
 // Add click handlers for buttons
 document.querySelectorAll('.action-button, .progress-badges').forEach(button => {
-    button.addEventListener('click', function() {
+    button.addEventListener('click', function () {
         // Add a subtle animation on click
         this.style.transform = 'scale(0.98)';
         setTimeout(() => {
@@ -107,7 +122,38 @@ document.querySelectorAll('.action-button, .progress-badges').forEach(button => 
 });
 
 // Initialize displays
-updateDifficultyDisplay();
+// Restore saved difficulty and language settings
+chrome.storage.sync.get(['difficultyLevel', 'selectedLanguage', 'extensionEnabled'], (data) => {
+    if (data.difficultyLevel !== undefined) {
+        difficultySlider.value = data.difficultyLevel; // adjust for index offset
+    }
+    if (data.selectedLanguage) {
+        [...languageSelect.options].forEach((option, i) => {
+            if (option.text === data.selectedLanguage) {
+                languageSelect.selectedIndex = i;
+            }
+        });
+    }
+    updateDifficultyDisplay();
+
+    // Set toggle state
+    const toggle = document.getElementById('extensionToggle');
+    if (data.extensionEnabled !== undefined) {
+        toggle.checked = data.extensionEnabled;
+    } else {
+        toggle.checked = true; // Default to enabled
+        chrome.storage.sync.set({ extensionEnabled: true });
+    }
+});
+
+updateVolumeDisplay();
+
+// Toggle functionality
+document.getElementById('extensionToggle').addEventListener('change', function() {
+    const isEnabled = this.checked;
+    chrome.storage.sync.set({ extensionEnabled: isEnabled });
+});
+
 updateVolumeDisplay();
 
 console.log("Ran scriptjs")

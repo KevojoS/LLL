@@ -484,16 +484,24 @@ class TranslationManager {
     }
 }
 
-// Initialize translation manager
-const translationManager = new TranslationManager();
+// Check if extension is enabled
+chrome.storage.sync.get('extensionEnabled', (data) => {
+    if (data.extensionEnabled === false) {
+        console.log("Extension is disabled");
+        return;
+    }
 
-// Translate initial viewport
-translationManager.translateViewport();
+    // Initialize translation manager
+    const translationManager = new TranslationManager();
 
-// Add scroll listener to translate as user scrolls
-let scrollTimeout;
-window.addEventListener('scroll', () => {
-    translationManager.onScroll();
-}, { passive: true });
+    // Translate initial viewport
+    translationManager.translateViewport();
 
-console.log("✨ Auto-translation enabled! Scroll to translate more content.");
+    // Add scroll listener to translate as user scrolls
+    let scrollTimeout;
+    window.addEventListener('scroll', () => {
+        translationManager.onScroll();
+    }, { passive: true });
+
+    console.log("✨ Auto-translation enabled! Scroll to translate more content.");
+});
