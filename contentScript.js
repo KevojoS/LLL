@@ -1,8 +1,4 @@
-const translationCache = new Map();
-
-// DO NOT hardcode API keys - use chrome.storage or your backend instead
-// const API_KEY = '...'; // REMOVE THIS
-API_KEY = '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'
+API_KEY = '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'
 
 async function translateSentence(language, sentence) {
   try {
@@ -166,6 +162,72 @@ function hideTranslationTooltip() {
     translationTooltip.classList.remove('visible');
 }
 
+async function showTranslationTooltip(element, translatedWord, originalWord, x, y) {
+    if (tooltipTimeout) {
+        clearTimeout(tooltipTimeout);
+    }
+
+    currentHoveredElement = element;
+
+    let englishTranslation;
+
+    // Check if we have translations data stored
+    const translationsData = element.getAttribute('data-translations');
+    
+    if (translationsData) {
+        // Use the stored translations
+        try {
+            const translations = JSON.parse(translationsData);
+            englishTranslation = translations.join('<br>');
+            console.log("Using stored translations:", translations);
+            
+            // Display immediately with the translated word at the top (use original translatedWord, not cleaned)
+            translationTooltip.innerHTML = `
+                <div class="translation-tooltip-header">${translatedWord}</div>
+                <div class="translation-tooltip-text">${englishTranslation}</div>
+            `;
+            positionTooltip(x, y);
+            translationTooltip.classList.add('visible');
+            return;
+        } catch (e) {
+            console.error("Error parsing translations data:", e);
+            englishTranslation = "Translation unavailable";
+        }
+    } else if (originalWord) {
+        // If we have the original English word stored, use it directly
+        englishTranslation = originalWord;
+        console.log("Using stored original English:", englishTranslation);
+    } else {
+        // If no original word is stored, try to translate the translated word back to English
+        console.log("No stored original word, translating back to English:", translatedWord);
+        const languageName = languageNameMap[storageInfo.language.toLowerCase()] || 'Russian';
+        const cleanWord = translatedWord.replace(/[.,!?;:"""'']/g, '').trim();
+        
+        // Show loading tooltip immediately with the translated word (use original, not cleaned)
+        translationTooltip.innerHTML = `
+            <div class="translation-tooltip-header">${translatedWord}</div>
+            <div class="translation-tooltip-text">Translating...</div>
+        `;
+        positionTooltip(x, y);
+        translationTooltip.classList.add('visible');
+        
+        // Then get the actual translation
+        englishTranslation = await translateSentence("english", cleanWord);
+    }
+
+    // Only update if we're still hovering over the same element (use original translatedWord)
+    if (currentHoveredElement === element) {
+        translationTooltip.innerHTML = `
+            <div class="translation-tooltip-header">${translatedWord}</div>
+            <div class="translation-tooltip-text">${englishTranslation}</div>
+        `;
+        positionTooltip(x, y);
+        translationTooltip.classList.add('visible');
+    }
+}
+
+
+
 function isVisible(element) {
     if (!element || !element.isConnected || element.nodeType !== Node.ELEMENT_NODE) return false;
 
@@ -283,71 +345,6 @@ function isValidSentence(sentence) {
 
 let storageInfo = null;
 let isProcessing = false; // Add flag to prevent re-processing during injection
-
-async function showTranslationTooltip(element, translatedWord, originalWord, x, y) {
-    if (tooltipTimeout) {
-        clearTimeout(tooltipTimeout);
-    }
-
-    currentHoveredElement = element;
-
-    let englishTranslation;
-
-    // Check if we have translations data stored
-    const translationsData = element.getAttribute('data-translations');
-    
-    if (translationsData) {
-        // Use the stored translations
-        try {
-            const translations = JSON.parse(translationsData);
-            englishTranslation = translations.join('<br>');
-            console.log("Using stored translations:", translations);
-            
-            // Display immediately with the translated word at the top (use original translatedWord, not cleaned)
-            translationTooltip.innerHTML = `
-                <div class="translation-tooltip-header">${translatedWord}</div>
-                <div class="translation-tooltip-text">${englishTranslation}</div>
-            `;
-            positionTooltip(x, y);
-            translationTooltip.classList.add('visible');
-            return;
-        } catch (e) {
-            console.error("Error parsing translations data:", e);
-            englishTranslation = "Translation unavailable";
-        }
-    } else if (originalWord) {
-        // If we have the original English word stored, use it directly
-        englishTranslation = originalWord;
-        console.log("Using stored original English:", englishTranslation);
-    } else {
-        // If no original word is stored, try to translate the translated word back to English
-        console.log("No stored original word, translating back to English:", translatedWord);
-        const languageName = languageNameMap[storageInfo.language.toLowerCase()] || 'Russian';
-        const cleanWord = translatedWord.replace(/[.,!?;:"""'']/g, '').trim();
-        
-        // Show loading tooltip immediately with the translated word (use original, not cleaned)
-        translationTooltip.innerHTML = `
-            <div class="translation-tooltip-header">${translatedWord}</div>
-            <div class="translation-tooltip-text">Translating...</div>
-        `;
-        positionTooltip(x, y);
-        translationTooltip.classList.add('visible');
-        
-        // Then get the actual translation
-        englishTranslation = await translateSentence("english", cleanWord);
-    }
-
-    // Only update if we're still hovering over the same element (use original translatedWord)
-    if (currentHoveredElement === element) {
-        translationTooltip.innerHTML = `
-            <div class="translation-tooltip-header">${translatedWord}</div>
-            <div class="translation-tooltip-text">${englishTranslation}</div>
-        `;
-        positionTooltip(x, y);
-        translationTooltip.classList.add('visible');
-    }
-}
-
 function injectTranslation(parentElement, translationData) {
   parentElement.textContent = "";
   
@@ -408,7 +405,9 @@ function injectTranslation(parentElement, translationData) {
   });
   
   // Sort by length (longest first) to match multi-word phrases before individual words
-  const sortedDefinitions = [...filteredDefinitions].sort((a, b) => b.word.length - a.word.length);
+    const sortedDefinitions = [...filteredDefinitions].sort((a, b) => b.word.length - a.word.length);
+    
+    
   
   const translatedBlock = document.createElement('span');
   translatedBlock.className = 'translated-block';
